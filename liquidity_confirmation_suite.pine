@@ -1,0 +1,414 @@
+// ============================================================================
+// Liquidity Confirmation Suite  —  XAUUSD M5 (visual indicator, manual entries)
+// ----------------------------------------------------------------------------
+// WHAT THIS IS / IS NOT (read this):
+//   The original idea uses REAL order-book / Level 2 depth (Bookmap).
+//   TradingView has NO access to order-book data, so this script does NOT and
+//   CANNOT show real resting buyers/sellers. Nothing here is "order flow".
+//
+//   Instead it APPROXIMATES liquidity using PRICE STRUCTURE + VOLUME only:
+//     - "Key levels" / "liquidity pools" = swing pivots and equal highs/lows.
+//     - "Liquidity grab" = a wick that sweeps a prior swing then closes back
+//       through it (an SMC-style sweep + reclaim / CHoCH).
+//     - "Volume confirmation" = candle volume vs its moving average. On
+//       XAUUSD/FX this is TICK volume, not real traded volume — treat it as a
+//       relative-activity proxy, not true participation.
+//     - FVGs, supply/demand zones = pure price-geometry heuristics.
+//
+//   It is a VISUAL indicator (draws levels + signals). It does NOT auto-trade.
+//   Confirmed signals evaluate on closed bars and do not repaint; pivot-based
+//   levels appear `pivotRight` bars late (inherent lag, not repaint).
+// ============================================================================
+
+//@version=6
+indicator("Liquidity Confirmation Suite", "LCS", overlay=true, max_lines_count=500, max_boxes_count=500, max_labels_count=500)
+
+// ---------------------------------------------------------------------------- INPUTS
+// --- Key levels ---
+gLvl       = "Key Levels"
+pivotLeft  = input.int(5,    "Pivot lookback (left)",  minval=1, group=gLvl)
+pivotRight = input.int(5,    "Pivot lookback (right)", minval=1, group=gLvl)
+showLevels = input.bool(true,"Show swing levels",      group=gLvl)
+eqTolMult  = input.float(0.10,"EQH/EQL tolerance (× ATR)", minval=0.0, step=0.05, group=gLvl)
+maxSwings  = input.int(20,   "Max swing levels kept",  minval=4, maxval=100, group=gLvl)
+
+// --- FVG & zones ---
+gZone      = "FVG & Supply/Demand"
+showFVG    = input.bool(true, "Show Fair Value Gaps (imbalances)", group=gZone)
+showZones  = input.bool(true, "Show basic supply/demand zones",    group=gZone)
+impulseMult= input.float(1.5, "Impulse size for zone (× ATR)", minval=0.1, step=0.1, group=gZone)
+maxZones   = input.int(12,    "Max FVGs / zones kept each", minval=2, maxval=60, group=gZone)
+
+// --- Volume ---
+gVol       = "Volume Confirmation"
+volLen     = input.int(20,   "Volume MA length", minval=1, group=gVol)
+volMult    = input.float(1.5,"Volume multiplier threshold", minval=0.1, step=0.1, group=gVol)
+showAbsorb = input.bool(true,"Mark absorption (big wick + high vol)", group=gVol)
+
+// --- ATR / Risk ---
+gRisk      = "ATR / Risk"
+atrLen     = input.int(14,   "ATR length", minval=1, group=gRisk)
+slBuffer   = input.float(0.3,"SL buffer beyond wick (× ATR)", minval=0.0, step=0.05, group=gRisk)
+tpMode     = input.string("Liquidity levels", "TP mode", options=["Liquidity levels","R-Multiples"], group=gRisk)
+r1         = input.float(1.0,"R-multiple TP1", minval=0.1, step=0.1, group=gRisk)
+r2         = input.float(2.0,"R-multiple TP2", minval=0.1, step=0.1, group=gRisk)
+r3         = input.float(3.0,"R-multiple TP3", minval=0.1, step=0.1, group=gRisk)
+
+// --- Daily reference ---
+gDay       = "Daily Reference Lines"
+showDaily  = input.bool(true,"Show today open + yesterday H/L/C", group=gDay)
+
+// --- Signals ---
+gSig       = "Signals"
+showWeak   = input.bool(true,"Show weak (no-volume) signals greyed", group=gSig)
+
+// --- Colors ---
+gCol       = "Colors"
+bullCol    = input.color(#26a69a, "Bullish", group=gCol)
+bearCol    = input.color(#ef5350, "Bearish", group=gCol)
+levelCol   = input.color(color.new(#9598a1, 0), "Swing levels", group=gCol)
+zoneBullCol= input.color(color.new(#26a69a, 80), "Demand zone", group=gCol)
+zoneBearCol= input.color(color.new(#ef5350, 80), "Supply zone", group=gCol)
+fvgBullCol = input.color(color.new(#26a69a, 85), "Bullish FVG", group=gCol)
+fvgBearCol = input.color(color.new(#ef5350, 85), "Bearish FVG", group=gCol)
+
+// ---------------------------------------------------------------------------- TYPES
+type Swing
+    float price
+    bool  isHigh
+    int   bar
+    line  ln
+    label lbl
+    bool  broken
+
+type Zone
+    box  bx
+    bool bull       // true = demand/bullish FVG, false = supply/bearish FVG
+    float top
+    float bottom
+
+var array<Swing> swings   = array.new<Swing>()
+var array<Zone>  fvgs     = array.new<Zone>()
+var array<Zone>  zones    = array.new<Zone>()
+
+// ---------------------------------------------------------------------------- CORE CALCS
+atr    = ta.atr(atrLen)
+volSma = ta.sma(volume, volLen)
+volOK  = volume > volSma * volMult
+eqTol  = eqTolMult * atr
+
+// Confirmed pivots (lag by pivotRight bars, then fixed — not repainting).
+ph = ta.pivothigh(pivotLeft, pivotRight)
+pl = ta.pivotlow(pivotLeft, pivotRight)
+
+// ---------------------------------------------------------------------------- HELPERS
+addSwing(price, isHigh) =>
+    // Equal-high/low check: a new pivot near an existing same-side level marks a
+    // liquidity pool (EQH/EQL) rather than adding a near-duplicate.
+    isEqual = false
+    if array.size(swings) > 0
+        for i = 0 to array.size(swings) - 1
+            s = array.get(swings, i)
+            if not s.broken and s.isHigh == isHigh and math.abs(s.price - price) <= eqTol
+                isEqual := true
+                break
+    col = levelCol
+    ln  = showLevels ? line.new(bar_index - pivotRight, price, bar_index, price, color=col, width=1, extend=extend.right) : na
+    txt = isEqual ? (isHigh ? "EQH" : "EQL") : ""
+    lbl = (showLevels and isEqual) ? label.new(bar_index, price, txt, style=isHigh ? label.style_label_down : label.style_label_up, color=color.new(color.gray, 20), textcolor=color.white, size=size.tiny) : na
+    array.push(swings, Swing.new(price, isHigh, bar_index - pivotRight, ln, lbl, false))
+    // Prune oldest to respect object limits.
+    if array.size(swings) > maxSwings
+        old = array.shift(swings)
+        if not na(old.ln)
+            line.delete(old.ln)
+        if not na(old.lbl)
+            label.delete(old.lbl)
+
+pruneZone(arr, maxN) =>
+    if array.size(arr) > maxN
+        old = array.shift(arr)
+        if not na(old.bx)
+            box.delete(old.bx)
+
+// ---------------------------------------------------------------------------- SIGNAL STATE
+var line   eLine  = na
+var line   slLine = na
+var line   tp1Line= na
+var line   tp2Line= na
+var line   tp3Line= na
+var label  eLbl   = na
+var label  slLbl  = na
+var label  tp1Lbl = na
+var label  tp2Lbl = na
+var label  tp3Lbl = na
+var label  rrLbl  = na
+
+clearSignal() =>
+    if not na(eLine)
+        line.delete(eLine)
+    if not na(slLine)
+        line.delete(slLine)
+    if not na(tp1Line)
+        line.delete(tp1Line)
+    if not na(tp2Line)
+        line.delete(tp2Line)
+    if not na(tp3Line)
+        line.delete(tp3Line)
+    if not na(eLbl)
+        label.delete(eLbl)
+    if not na(slLbl)
+        label.delete(slLbl)
+    if not na(tp1Lbl)
+        label.delete(tp1Lbl)
+    if not na(tp2Lbl)
+        label.delete(tp2Lbl)
+    if not na(tp3Lbl)
+        label.delete(tp3Lbl)
+    if not na(rrLbl)
+        label.delete(rrLbl)
+
+// Plot-layer booleans (reset each bar, set only on confirmed close = non-repaint)
+bool confBull = false
+bool confBear = false
+bool weakBull = false
+bool weakBear = false
+bool absorbSig= false
+
+// Alert payload (strings for dynamic alert messages)
+var string alBull = ""
+var string alBear = ""
+
+// ---------------------------------------------------------------------------- MAIN (confirmed only)
+if barstate.isconfirmed
+    // ---- 1. Register new swing pivots ----
+    if not na(ph)
+        addSwing(ph, true)
+    if not na(pl)
+        addSwing(pl, false)
+
+    // ---- 2. Invalidate levels closed decisively through ----
+    if array.size(swings) > 0
+        for i = 0 to array.size(swings) - 1
+            s = array.get(swings, i)
+            if not s.broken
+                gone = s.isHigh ? close > s.price : close < s.price
+                if gone
+                    s.broken := true
+                    if not na(s.ln)
+                        line.set_extend(s.ln, extend.none)
+                        line.set_style(s.ln, line.style_dotted)
+                        line.set_color(s.ln, color.new(levelCol, 70))
+
+    // ---- 3. Fair Value Gaps (3-candle imbalance) ----
+    if showFVG
+        // Bullish: gap between high[2] (bottom) and current low (top)
+        if low > high[2]
+            bx = box.new(bar_index - 2, low, bar_index, high[2], border_color=na, bgcolor=fvgBullCol, extend=extend.right)
+            array.push(fvgs, Zone.new(bx, true, low, high[2]))
+        // Bearish: gap between low[2] (top) and current high (bottom)
+        if high < low[2]
+            bx = box.new(bar_index - 2, low[2], bar_index, high, border_color=na, bgcolor=fvgBearCol, extend=extend.right)
+            array.push(fvgs, Zone.new(bx, false, low[2], high))
+        // Remove filled FVGs
+        if array.size(fvgs) > 0
+            for i = array.size(fvgs) - 1 to 0
+                z = array.get(fvgs, i)
+                filled = z.bull ? low <= z.bottom : high >= z.top
+                if filled
+                    box.delete(z.bx)
+                    array.remove(fvgs, i)
+        pruneZone(fvgs, maxZones)
+
+    // ---- 4. Basic supply/demand zones from last impulse ----
+    // Honest note: this is a geometry heuristic (impulse candle + prior base),
+    // NOT a validated institutional order block.
+    if showZones
+        bullImpulse = (close - open) > atr * impulseMult
+        bearImpulse = (open - close) > atr * impulseMult
+        if bullImpulse
+            bx = box.new(bar_index - 1, high[1], bar_index, low[1], border_color=color.new(bullCol, 40), bgcolor=zoneBullCol, extend=extend.right)
+            array.push(zones, Zone.new(bx, true, high[1], low[1]))
+        if bearImpulse
+            bx = box.new(bar_index - 1, high[1], bar_index, low[1], border_color=color.new(bearCol, 40), bgcolor=zoneBearCol, extend=extend.right)
+            array.push(zones, Zone.new(bx, false, high[1], low[1]))
+        if array.size(zones) > 0
+            for i = array.size(zones) - 1 to 0
+                z = array.get(zones, i)
+                mitigated = z.bull ? close < z.bottom : close > z.top
+                if mitigated
+                    box.delete(z.bx)
+                    array.remove(zones, i)
+        pruneZone(zones, maxZones)
+
+    // ---- 5. Absorption (big wick + high volume at extreme) ----
+    if showAbsorb
+        rngA      = math.max(high - low, syminfo.mintick)
+        bodyA     = math.abs(close - open)
+        upperWick = high - math.max(close, open)
+        lowerWick = math.min(close, open) - low
+        bigWick   = (upperWick > bodyA * 2 or lowerWick > bodyA * 2)
+        absorbSig := bigWick and volOK
+
+    // ---- 6. Liquidity sweep + reclaim detection (the trigger) ----
+    // Bullish: current bar wicks below a prior swing LOW but closes back above it.
+    // Bearish: current bar wicks above a prior swing HIGH but closes back below.
+    sweptLowPrice  = na
+    sweptLowWick   = na
+    sweptHighPrice = na
+    sweptHighWick  = na
+    if array.size(swings) > 0
+        for i = 0 to array.size(swings) - 1
+            s = array.get(swings, i)
+            if not s.broken and s.bar < bar_index
+                // bullish sweep: level below close, wicked, reclaimed
+                if not s.isHigh and low < s.price and close > s.price
+                    // pick the highest such level (closest reclaimed support)
+                    if na(sweptLowPrice) or s.price > sweptLowPrice
+                        sweptLowPrice := s.price
+                        sweptLowWick  := low
+                // bearish sweep: level above close, wicked, reclaimed
+                if s.isHigh and high > s.price and close < s.price
+                    if na(sweptHighPrice) or s.price < sweptHighPrice
+                        sweptHighPrice := s.price
+                        sweptHighWick  := high
+
+    rawBull = not na(sweptLowPrice)
+    rawBear = not na(sweptHighPrice)
+    confBull := rawBull and volOK
+    confBear := rawBear and volOK
+    weakBull := rawBull and not volOK and showWeak
+    weakBear := rawBear and not volOK and showWeak
+
+    // ---- 7. Entry / SL / TP for a CONFIRMED (volume-backed) signal ----
+    if confBull or confBear
+        clearSignal()
+        dir     = confBull ? 1 : -1
+        entry   = close
+        wick    = confBull ? sweptLowWick : sweptHighWick
+        sl      = confBull ? wick - atr * slBuffer : wick + atr * slBuffer
+        risk    = math.abs(entry - sl)
+
+        // TP candidates from opposing liquidity (next swings), else R-multiples.
+        float tp1 = na
+        float tp2 = na
+        float tp3 = na
+        if tpMode == "Liquidity levels"
+            cand = array.new<float>()
+            if array.size(swings) > 0
+                for i = 0 to array.size(swings) - 1
+                    s = array.get(swings, i)
+                    if not s.broken
+                        if confBull and s.isHigh and s.price > entry + risk * 0.1
+                            array.push(cand, s.price)
+                        if confBear and not s.isHigh and s.price < entry - risk * 0.1
+                            array.push(cand, s.price)
+            if confBull
+                array.sort(cand, order.ascending)     // nearest above first
+            else
+                array.sort(cand, order.descending)    // nearest below first
+            tp1 := array.size(cand) > 0 ? array.get(cand, 0) : na
+            tp2 := array.size(cand) > 1 ? array.get(cand, 1) : na
+            tp3 := array.size(cand) > 2 ? array.get(cand, 2) : na
+        // Fallback / R-Multiple mode: fill any missing TP with an R target.
+        tp1 := na(tp1) or tpMode == "R-Multiples" ? entry + dir * risk * r1 : tp1
+        tp2 := na(tp2) or tpMode == "R-Multiples" ? entry + dir * risk * r2 : tp2
+        tp3 := na(tp3) or tpMode == "R-Multiples" ? entry + dir * risk * r3 : tp3
+
+        rr1 = risk > 0 ? (math.abs(tp1 - entry) / risk) : na
+
+        // Draw the trade map (extends right; replaced on next signal).
+        eLine  := line.new(bar_index, entry, bar_index + 1, entry, color=color.new(color.blue, 0), width=2, extend=extend.right)
+        slLine := line.new(bar_index, sl,    bar_index + 1, sl,    color=color.new(bearCol, 0), style=line.style_dashed, width=2, extend=extend.right)
+        tp1Line:= line.new(bar_index, tp1,   bar_index + 1, tp1,   color=color.new(bullCol, 0), style=line.style_dotted, width=1, extend=extend.right)
+        tp2Line:= line.new(bar_index, tp2,   bar_index + 1, tp2,   color=color.new(bullCol, 30), style=line.style_dotted, width=1, extend=extend.right)
+        tp3Line:= line.new(bar_index, tp3,   bar_index + 1, tp3,   color=color.new(bullCol, 50), style=line.style_dotted, width=1, extend=extend.right)
+        eLbl   := label.new(bar_index, entry, "ENTRY " + str.tostring(entry, format.mintick), style=label.style_label_left, color=color.new(color.blue, 0), textcolor=color.white, size=size.tiny)
+        slLbl  := label.new(bar_index, sl,    "SL "  + str.tostring(sl,  format.mintick), style=label.style_label_left, color=color.new(bearCol, 0), textcolor=color.white, size=size.tiny)
+        tp1Lbl := label.new(bar_index, tp1,   "TP1 " + str.tostring(tp1, format.mintick), style=label.style_label_left, color=color.new(bullCol, 0), textcolor=color.white, size=size.tiny)
+        tp2Lbl := label.new(bar_index, tp2,   "TP2 " + str.tostring(tp2, format.mintick), style=label.style_label_left, color=color.new(bullCol, 20), textcolor=color.white, size=size.tiny)
+        tp3Lbl := label.new(bar_index, tp3,   "TP3 " + str.tostring(tp3, format.mintick), style=label.style_label_left, color=color.new(bullCol, 40), textcolor=color.white, size=size.tiny)
+        rrLbl  := label.new(bar_index, entry, "R:R(TP1) ≈ " + str.tostring(rr1, "#.##"), style=label.style_label_right, color=color.new(color.gray, 10), textcolor=color.white, size=size.tiny)
+
+        // Build dynamic alert messages.
+        dirStr = confBull ? "BULLISH" : "BEARISH"
+        msg = dirStr + " sweep+reclaim | Entry " + str.tostring(entry, format.mintick) + " | SL " + str.tostring(sl, format.mintick) + " | TP1 " + str.tostring(tp1, format.mintick)
+        if confBull
+            alBull := msg
+        else
+            alBear := msg
+
+// ---------------------------------------------------------------------------- DAILY REFERENCE LINES
+// Today open uses current-session open (known at session start).
+// Yesterday H/L/C use the prior CLOSED daily bar ([1]) so they never repaint.
+dOpen  = request.security(syminfo.tickerid, "D", open,     lookahead=barmerge.lookahead_on)
+yHigh  = request.security(syminfo.tickerid, "D", high[1],  lookahead=barmerge.lookahead_on)
+yLow   = request.security(syminfo.tickerid, "D", low[1],   lookahead=barmerge.lookahead_on)
+yClose = request.security(syminfo.tickerid, "D", close[1], lookahead=barmerge.lookahead_on)
+
+var line dOpenL  = na
+var line yHighL  = na
+var line yLowL   = na
+var line yCloseL = na
+var label dOpenLbl  = na
+var label yHighLbl  = na
+var label yLowLbl   = na
+var label yCloseLbl = na
+
+drawRef(ln, lbl, price, txt, col) =>
+    line  l = ln
+    label b = lbl
+    if na(l)
+        l := line.new(bar_index - 1, price, bar_index, price, color=col, style=line.style_dashed, width=1, extend=extend.both)
+        b := label.new(bar_index, price, txt, style=label.style_label_left, color=color.new(col, 70), textcolor=color.white, size=size.tiny)
+    else
+        line.set_xy1(l, bar_index - 1, price)
+        line.set_xy2(l, bar_index, price)
+        label.set_xy(b, bar_index, price)
+        label.set_text(b, txt)
+    [l, b]
+
+if showDaily and barstate.islast
+    [l1, b1] = drawRef(dOpenL,  dOpenLbl,  dOpen,  "Today Open",  color.new(color.orange, 0))
+    dOpenL := l1
+    dOpenLbl := b1
+    [l2, b2] = drawRef(yHighL,  yHighLbl,  yHigh,  "Y-High", color.new(#787b86, 0))
+    yHighL := l2
+    yHighLbl := b2
+    [l3, b3] = drawRef(yLowL,   yLowLbl,   yLow,   "Y-Low",  color.new(#787b86, 0))
+    yLowL := l3
+    yLowLbl := b3
+    [l4, b4] = drawRef(yCloseL, yCloseLbl, yClose, "Y-Close", color.new(#b2b5be, 0))
+    yCloseL := l4
+    yCloseLbl := b4
+
+// ---------------------------------------------------------------------------- PLOTS
+plotshape(confBull, title="Bullish confirmed", style=shape.triangleup,   location=location.belowbar, color=bullCol, size=size.small, text="LONG")
+plotshape(confBear, title="Bearish confirmed", style=shape.triangledown, location=location.abovebar, color=bearCol, size=size.small, text="SHORT")
+plotshape(weakBull, title="Bullish weak (no vol)", style=shape.triangleup,   location=location.belowbar, color=color.new(color.gray, 40), size=size.tiny)
+plotshape(weakBear, title="Bearish weak (no vol)", style=shape.triangledown, location=location.abovebar, color=color.new(color.gray, 40), size=size.tiny)
+plotshape(showAbsorb and absorbSig, title="Absorption", style=shape.diamond, location=location.abovebar, color=color.new(color.yellow, 0), size=size.tiny)
+
+// ---------------------------------------------------------------------------- ALERTS
+// Set alerts to "Once Per Bar Close" to match the non-repaint (confirmed) logic.
+alertcondition(confBull, title="Confirmed bullish setup", message="{{ticker}} {{interval}} LONG — {{plot_0}}")
+alertcondition(confBear, title="Confirmed bearish setup", message="{{ticker}} {{interval}} SHORT — {{plot_1}}")
+// Dynamic price payload for alert templates ({{plot_0}} / {{plot_1}} above).
+plot(confBull ? close : na, "alBullPrice", display=display.none)
+plot(confBear ? close : na, "alBearPrice", display=display.none)
+// For full dynamic text (Entry/SL/TP1) use alert() on the confirmed bar:
+if barstate.isconfirmed and confBull
+    alert(alBull, alert.freq_once_per_bar_close)
+if barstate.isconfirmed and confBear
+    alert(alBear, alert.freq_once_per_bar_close)
+
+// ============================================================================
+// USAGE / HONESTY NOTES
+//  - Levels/pools = swing pivots + EQH/EQL (price structure), NOT real depth.
+//  - Volume = candle volume vs MA; on XAUUSD this is TICK volume (activity
+//    proxy). Grey signals = sweep+reclaim WITHOUT the volume filter (weaker).
+//  - Signals evaluate on closed bars (barstate.isconfirmed) → no repaint.
+//    Pivot levels lag by `pivotRight` bars by construction (expected).
+//  - SL always sits an ATR buffer beyond the swept wick, never on the level.
+//  - Validate on Bar Replay + demo before trading. Educational tool.
+// ============================================================================

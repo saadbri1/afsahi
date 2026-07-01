@@ -1,0 +1,21 @@
+[
+  {
+    "id": "c8b337c9-5023-44ac-93a4-e1bb7750096c",
+    "status": "completed",
+    "display_name": "GPT Image 2",
+    "job_set_type": "gpt_image_2",
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3CVBX6LtwdzsEkWyHdryIt3j8SX/hf_20260616_203657_c8b337c9-5023-44ac-93a4-e1bb7750096c.png",
+    "created_at": 1781642217.302879,
+    "params": {
+      "width": 2688,
+      "height": 1520,
+      "prompt": "Cinematic ultra-premium photograph of a glossy black Mercedes-Benz S-Class luxury sedan parked at night directly in front of a modern airport terminal entrance. Wet reflective asphalt, warm golden accent lighting, soft glowing terminal windows in background, dramatic moody atmosphere, shallow depth of field, luxury automotive advertising photography, gold rim light on the car body, elegant and refined, 8k editorial quality, dark black ambiance",
+      "medias": [],
+      "aspect_ratio": "16:9",
+      "quality": "high",
+      "resolution": "2k",
+      "model": "videotape-alpha",
+      "reference_elements": []
+    }
+  }
+]

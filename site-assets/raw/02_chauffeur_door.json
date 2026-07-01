@@ -1,0 +1,21 @@
+[
+  {
+    "id": "8a15fcba-ba83-464c-a30a-25c625c3fbce",
+    "status": "completed",
+    "display_name": "GPT Image 2",
+    "job_set_type": "gpt_image_2",
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3CVBX6LtwdzsEkWyHdryIt3j8SX/hf_20260616_203703_8a15fcba-ba83-464c-a30a-25c625c3fbce.png",
+    "created_at": 1781642223.029191,
+    "params": {
+      "width": 2336,
+      "height": 1744,
+      "prompt": "Cinematic luxury photograph of a professional chauffeur in an elegant black suit and white gloves opening the rear door of a glossy black luxury Mercedes sedan for an elegant well-dressed VIP passenger. Night scene, warm golden accent lighting, refined upscale atmosphere, dark moody background, premium chauffeur service advertising, respectful elegant gesture, shallow depth of field, editorial 8k quality, gold tones",
+      "medias": [],
+      "aspect_ratio": "4:3",
+      "quality": "high",
+      "resolution": "2k",
+      "model": "videotape-alpha",
+      "reference_elements": []
+    }
+  }
+]

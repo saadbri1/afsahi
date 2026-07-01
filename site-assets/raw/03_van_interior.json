@@ -1,0 +1,21 @@
+[
+  {
+    "id": "d549c039-4d8a-42a9-b387-9a5168951e89",
+    "status": "completed",
+    "display_name": "GPT Image 2",
+    "job_set_type": "gpt_image_2",
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3CVBX6LtwdzsEkWyHdryIt3j8SX/hf_20260616_203707_d549c039-4d8a-42a9-b387-9a5168951e89.png",
+    "created_at": 1781642227.981398,
+    "params": {
+      "width": 2688,
+      "height": 1520,
+      "prompt": "Cinematic interior photograph of a luxury Mercedes V-Class chauffeur van, premium quilted black leather captain seats, warm golden ambient LED lighting strips along the cabin, polished wood and metal trim, refined spacious executive interior, moody dark luxurious atmosphere, soft glowing accent lights, high-end transport advertising photography, 8k editorial quality, elegant gold tones",
+      "medias": [],
+      "aspect_ratio": "16:9",
+      "quality": "high",
+      "resolution": "2k",
+      "model": "videotape-alpha",
+      "reference_elements": []
+    }
+  }
+]

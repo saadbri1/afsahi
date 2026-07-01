@@ -1,0 +1,269 @@
+/* ============================================================
+   AFSAHI LUXURY TRANSPORT — main.js
+   GSAP + ScrollTrigger, gold particle hero, booking form, nav.
+   Fully guarded for prefers-reduced-motion and missing GSAP.
+   ============================================================ */
+(function () {
+  "use strict";
+
+  var prefersReduced = window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var hasGSAP = typeof window.gsap !== "undefined";
+
+  /* ---------- Footer year ---------- */
+  var yearEl = document.getElementById("year");
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+  /* ============================================================
+     NAV: scroll background + mobile menu
+     ============================================================ */
+  var nav = document.getElementById("nav");
+  var navToggle = document.getElementById("navToggle");
+  var mobileMenu = document.getElementById("mobileMenu");
+
+  function onScrollNav() {
+    if (!nav) return;
+    if (window.scrollY > 40) nav.classList.add("is-scrolled");
+    else nav.classList.remove("is-scrolled");
+  }
+  window.addEventListener("scroll", onScrollNav, { passive: true });
+  onScrollNav();
+
+  function closeMenu() {
+    if (!mobileMenu) return;
+    mobileMenu.classList.remove("is-open");
+    mobileMenu.setAttribute("aria-hidden", "true");
+    navToggle.classList.remove("is-open");
+    navToggle.setAttribute("aria-expanded", "false");
+    navToggle.setAttribute("aria-label", "Open menu");
+  }
+  if (navToggle && mobileMenu) {
+    navToggle.addEventListener("click", function () {
+      var open = mobileMenu.classList.toggle("is-open");
+      navToggle.classList.toggle("is-open", open);
+      mobileMenu.setAttribute("aria-hidden", String(!open));
+      navToggle.setAttribute("aria-expanded", String(open));
+      navToggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    });
+    mobileMenu.querySelectorAll("a").forEach(function (a) {
+      a.addEventListener("click", closeMenu);
+    });
+  }
+
+  /* ============================================================
+     BOOKING FORM: trip toggle + submit confirmation
+     ============================================================ */
+  var segBtns = document.querySelectorAll(".seg__btn");
+  var segSlider = document.querySelector(".seg__slider");
+  var tripInput = document.getElementById("tripType");
+
+  segBtns.forEach(function (btn, i) {
+    btn.addEventListener("click", function () {
+      segBtns.forEach(function (b) {
+        b.classList.remove("is-active");
+        b.setAttribute("aria-selected", "false");
+      });
+      btn.classList.add("is-active");
+      btn.setAttribute("aria-selected", "true");
+      if (tripInput) tripInput.value = btn.getAttribute("data-trip");
+      if (segSlider) segSlider.style.transform = "translateX(" + (i * 100) + "%)";
+    });
+  });
+
+  var form = document.getElementById("bookingForm");
+  var note = document.getElementById("bookingNote");
+  if (form && note) {
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var trip = (tripInput && tripInput.value) || "journey";
+      var pickup = (document.getElementById("pickup").value || "").trim();
+      note.textContent = pickup
+        ? "Thank you. A concierge will confirm your " + trip.toLowerCase() +
+          " from " + pickup + " shortly."
+        : "Thank you. A concierge will be in touch shortly to confirm your " +
+          trip.toLowerCase() + ".";
+      note.classList.add("is-shown");
+      if (hasGSAP && !prefersReduced) {
+        window.gsap.fromTo(note, { y: 8 }, { y: 0, duration: 0.6, ease: "power2.out" });
+      }
+    });
+  }
+
+  /* ============================================================
+     GOLD PARTICLE CANVAS (hero ambiance)
+     ============================================================ */
+  (function particles() {
+    var canvas = document.getElementById("heroParticles");
+    if (!canvas || prefersReduced) return;
+    var ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    var w, h, dpr, parts = [], raf;
+    var COUNT = 46;
+
+    function size() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = canvas.clientWidth;
+      h = canvas.clientHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function makeParts() {
+      parts = [];
+      var n = w < 640 ? 26 : COUNT;
+      for (var i = 0; i < n; i++) {
+        parts.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          r: Math.random() * 1.6 + 0.4,
+          vx: (Math.random() - 0.5) * 0.12,
+          vy: -(Math.random() * 0.28 + 0.06),
+          a: Math.random() * 0.5 + 0.15,
+          tw: Math.random() * Math.PI * 2
+        });
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, w, h);
+      for (var i = 0; i < parts.length; i++) {
+        var p = parts[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.tw += 0.02;
+        if (p.y < -10) { p.y = h + 10; p.x = Math.random() * w; }
+        if (p.x < -10) p.x = w + 10;
+        if (p.x > w + 10) p.x = -10;
+        var alpha = p.a * (0.6 + 0.4 * Math.sin(p.tw));
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(212, 175, 55, " + alpha.toFixed(3) + ")";
+        ctx.shadowColor = "rgba(212, 175, 55, 0.6)";
+        ctx.shadowBlur = 6;
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+      raf = requestAnimationFrame(draw);
+    }
+
+    function start() { size(); makeParts(); cancelAnimationFrame(raf); draw(); }
+    var rt;
+    window.addEventListener("resize", function () {
+      clearTimeout(rt); rt = setTimeout(start, 200);
+    });
+    // Pause when hero is off-screen to save battery.
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) { if (!raf) draw(); }
+        else { cancelAnimationFrame(raf); raf = 0; }
+      });
+    }, { threshold: 0.01 });
+    var hero = document.getElementById("hero");
+    if (hero) io.observe(hero);
+    start();
+  })();
+
+  /* ============================================================
+     REVEAL FALLBACK (IntersectionObserver) — used if no GSAP
+     ============================================================ */
+  function basicReveal() {
+    var els = document.querySelectorAll(".reveal");
+    if (prefersReduced) {
+      els.forEach(function (el) { el.classList.add("is-in"); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) { en.target.classList.add("is-in"); io.unobserve(en.target); }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
+    els.forEach(function (el) { io.observe(el); });
+  }
+
+  /* ============================================================
+     GSAP ANIMATIONS
+     ============================================================ */
+  function runGSAP() {
+    var gsap = window.gsap;
+    if (window.ScrollTrigger) gsap.registerPlugin(window.ScrollTrigger);
+
+    /* ---- Hero load sequence ---- */
+    var heroImg = document.querySelector(".hero__img");
+    var heroEls = document.querySelectorAll("[data-hero]");
+    var bookingCard = document.querySelector(".booking__card");
+
+    var tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+
+    if (heroImg) {
+      tl.fromTo(heroImg,
+        { scale: 1.22, opacity: 0 },
+        { scale: 1.12, opacity: 1, duration: 1.8, ease: "power2.out" }, 0);
+    }
+    if (heroEls.length) {
+      tl.fromTo(heroEls,
+        { y: 34, opacity: 0 },
+        { y: 0, opacity: 1, duration: 1, stagger: 0.12 }, 0.4);
+    }
+    if (bookingCard) {
+      tl.fromTo(bookingCard,
+        { y: 48, opacity: 0 },
+        { y: 0, opacity: 1, duration: 1.1 }, 0.85);
+    }
+
+    /* ---- Reveal on scroll ---- */
+    gsap.utils.toArray(".reveal").forEach(function (el) {
+      gsap.fromTo(el,
+        { y: 40, opacity: 0 },
+        {
+          y: 0, opacity: 1, duration: 1, ease: "power3.out",
+          scrollTrigger: { trigger: el, start: "top 86%", once: true }
+        });
+    });
+
+    /* ---- Hero image subtle parallax ---- */
+    if (heroImg && window.ScrollTrigger) {
+      gsap.to(heroImg, {
+        yPercent: 12, ease: "none",
+        scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true }
+      });
+    }
+
+    /* ---- Experience parallax ---- */
+    var exImg = document.getElementById("exImg");
+    if (exImg && window.ScrollTrigger) {
+      gsap.fromTo(exImg, { yPercent: -10 }, {
+        yPercent: 10, ease: "none",
+        scrollTrigger: { trigger: ".experience", start: "top bottom", end: "bottom top", scrub: true }
+      });
+    }
+
+    /* ---- Service image gentle drift ---- */
+    if (window.ScrollTrigger) {
+      gsap.utils.toArray(".srow__media img").forEach(function (img) {
+        gsap.fromTo(img, { yPercent: -6 }, {
+          yPercent: 6, ease: "none",
+          scrollTrigger: { trigger: img, start: "top bottom", end: "bottom top", scrub: true }
+        });
+      });
+    }
+  }
+
+  /* ============================================================
+     BOOT
+     ============================================================ */
+  if (hasGSAP && !prefersReduced) {
+    runGSAP();
+  } else {
+    // Ensure hero content is visible even without GSAP.
+    document.querySelectorAll("[data-hero]").forEach(function (el) {
+      el.style.opacity = 1; el.style.transform = "none";
+    });
+    var bc = document.querySelector(".booking__card");
+    if (bc) { bc.style.opacity = 1; bc.style.transform = "none"; }
+    var hi = document.querySelector(".hero__img");
+    if (hi && prefersReduced) hi.style.opacity = 1;
+    basicReveal();
+  }
+})();

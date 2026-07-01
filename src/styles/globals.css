@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --champ: #a9823f;
+  --champ-dk: #7e6024;
+  --line: #e7decc;
+}
+
+* { margin: 0; box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-stopped { overflow: hidden; }
+
+body {
+  @apply bg-paper text-body font-sans font-normal antialiased;
+  line-height: 1.65;
+  overflow-x: hidden;
+  text-rendering: optimizeLegibility;
+  cursor: none;
+}
+@media (hover: none), (max-width: 860px) {
+  body { cursor: auto; }
+  a, button, [data-cursor], [role="button"] { cursor: pointer; }
+}
+
+::selection { background: var(--champ); color: #fff; }
+img { display: block; max-width: 100%; }
+
+/* Headlines — single grotesk, calm, sentence case. Tight, large, restrained. */
+h1, h2, h3, h4 {
+  @apply font-sans text-ink;
+  font-weight: 500;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+}
+h1 { font-weight: 600; letter-spacing: -0.03em; }
+
+:focus-visible {
+  outline: 2px solid var(--champ-dk);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+@layer components {
+  .wrap { @apply mx-auto w-full max-w-[1180px] px-[clamp(1.3rem,5vw,2.5rem)]; }
+  /* generous Blacklane-style vertical rhythm */
+  .section { @apply py-[clamp(5rem,10vw,9rem)]; }
+  .eyebrow {
+    @apply inline-flex items-center gap-[0.7em] font-sans text-[0.7rem] font-semibold uppercase tracking-luxe text-champ-dk;
+  }
+  .eyebrow::before { content: ""; width: 22px; height: 1px; @apply bg-champ; }
+  .eyebrow--center::before { display: none; }
+  .eyebrow--ondark { @apply text-champ-lt; }
+}
+
+/* subtle shine sweep on primary CTAs */
+.shimmer { position: relative; overflow: hidden; isolation: isolate; }
+.shimmer::before {
+  content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; z-index: 1;
+  background: linear-gradient(105deg, transparent, rgba(255,255,255,0.5), transparent);
+  transform: skewX(-18deg); animation: shimmer 5s ease-in-out infinite;
+}
+
+/* hero load entrance — CSS-driven so it resolves even when the tab is hidden */
+@keyframes heroRise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.hero-rise { opacity: 0; animation: heroRise 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  body { cursor: auto; }
+  a, button, [data-cursor], [role="button"] { cursor: pointer; }
+  .shimmer::before { display: none; }
+}

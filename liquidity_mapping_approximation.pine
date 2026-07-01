@@ -1,0 +1,617 @@
+// ============================================================================
+// Liquidity Mapping Approximation — Inspired by Order Flow
+// ----------------------------------------------------------------------------
+// TradingView Pine Script cannot access real Level 2 order book / DOM data.
+// This script APPROXIMATES liquidity behavior using price, volume, pivots,
+// equal highs/lows, round numbers, sweeps, wick rejection and ATR.
+// It is NOT the IBLV LMS suite and NOT a real order-book feed.
+// On FX/CFD/Gold (e.g. XAUUSD), `volume` is TICK volume, not real traded volume,
+// and "delta" here is a close-position PROXY, not true bid/ask delta.
+// Educational / discretionary-assist tool only. Validate on replay + demo first.
+// ============================================================================
+//
+// KNOWN LIMITATIONS (see README.md §12 for the full list):
+//  - No real Level 2 / DOM / order-book data exists in Pine. Levels are a
+//    price/volume approximation, not resting limit orders.
+//  - On FX/CFD/metals (XAUUSD) `volume` is tick volume; "delta" is a
+//    close-position proxy, not true bid/ask delta.
+//  - Lower-TF (15s) and some request.security intrabar data are plan/feed
+//    dependent and may be unavailable; the script falls back to chart TF.
+//  - Pivot-based levels are inherently lagged by `pivotLen` bars.
+//  - Equal-highs/lows and round-number detection are heuristics.
+//  - This is an indicator (visual + alerts), not an auto-executing strategy.
+//  - Validate on Bar Replay and a demo account before risking capital.
+//
+// NON-REPAINT NOTES (where true non-repaint is impossible):
+//  - The live forming bar can change until it closes. ALL confirmed signals,
+//    level additions, invalidations and alerts are gated by
+//    `barstate.isconfirmed`, so they only settle on bar close and never move
+//    afterwards. The optional faint "provisional" layer is the ONLY thing that
+//    may flicker intrabar — it is cosmetic and never fires alerts.
+//  - Pivots use ta.pivothigh/low(pivotLen, pivotLen): they confirm pivotLen
+//    bars AFTER the fact and are then fixed. This lag is expected, not repaint.
+//  - request.security() everywhere uses lookahead_off and references the prior
+//    closed HTF bar ([1]) for confirmation, so no unclosed HTF data is pulled.
+//  - 15s / lower-TF data is plan-dependent; if `na` we fall back to chart TF
+//    and surface it in the dashboard rather than erroring.
+
+// 2. ----------------------------------------------------------------- DECLARATION
+//@version=5
+indicator("Liquidity Mapping Approximation — Inspired by Order Flow", "LMA-OF", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=500)
+
+// 3. ----------------------------------------------------------------- INPUTS
+// --- Detection ---------------------------------------------------------------
+gDet       = "Detection"
+pivotLen   = input.int(15,   "Pivot length",                 minval=2,   group=gDet)
+volLen     = input.int(20,   "Volume SMA length",            minval=1,   group=gDet)
+volMult    = input.float(1.5,"Volume spike multiplier",      minval=0.1, step=0.1, group=gDet)
+atrLen     = input.int(14,   "ATR length",                   minval=1,   group=gDet)
+eqTolMult  = input.float(0.25,"Equal H/L tolerance (× ATR)", minval=0.0, step=0.05, group=gDet)
+useRound   = input.bool(true,"Detect round-number levels",   group=gDet)
+roundStep  = input.float(0.0,"Round-number step (0 = auto from tick)", minval=0.0, group=gDet)
+bodyMin    = input.float(0.5,"Min candle body ratio for aggression", minval=0.0, maxval=1.0, group=gDet)
+closePosMin= input.float(0.66,"Close-position threshold (delta proxy)", minval=0.5, maxval=1.0, group=gDet)
+
+// --- Levels & visuals --------------------------------------------------------
+gLvl         = "Levels & visuals"
+maxLevels    = input.int(40, "Max liquidity levels on chart", minval=2, maxval=200, group=gLvl)
+phantomBars  = input.int(120,"Keep phantom level for N bars", minval=1, group=gLvl)
+phantomOpacity = input.int(80,"Phantom level transparency",   minval=0, maxval=100, group=gLvl)
+breakBufferAtr = input.float(0.25,"Invalidation buffer (× ATR)", minval=0.0, step=0.05, group=gLvl)
+
+// --- Risk / stops ------------------------------------------------------------
+gRisk          = "Risk / stops"
+atrMult        = input.float(1.5,"ATR stop multiplier",       minval=0.1, step=0.1, group=gRisk)
+stopBufferTicks= input.int(0,    "Extra stop buffer (ticks)", minval=0,   group=gRisk)
+
+// --- Scaling (adds) ----------------------------------------------------------
+gScale  = "Scaling (adds)"
+maxAdds = input.int(2, "Max adds after first entry", minval=0, maxval=10, group=gScale)
+
+// --- Trailing ----------------------------------------------------------------
+gTrail  = "Trailing"
+trailTF = input.string("1M", "Trailing timeframe", options=["15S","1M","5M"], group=gTrail)
+
+// --- Confirmation ------------------------------------------------------------
+gConf  = "Confirmation"
+confTF = input.string("Chart", "Confirmation close timeframe", options=["Chart","1M","5M"], group=gConf)
+
+// --- Trend filter ------------------------------------------------------------
+gTrend   = "Trend filter"
+useTrend = input.bool(false,"Enable EMA trend filter", group=gTrend)
+emaFast  = input.int(50,    "Trend EMA fast", minval=1, group=gTrend)
+emaSlow  = input.int(200,   "Trend EMA slow", minval=1, group=gTrend)
+
+// --- Exit / caution ----------------------------------------------------------
+gExit      = "Exit / caution"
+proxNearAtr= input.float(0.5,"Opposite-liquidity proximity (× ATR)", minval=0.0, step=0.05, group=gExit)
+
+// --- News / avoid window -----------------------------------------------------
+// Single window. To support multiple windows, duplicate newsStart/newsEnd
+// inputs and OR the `inNews` checks together. Times use the exchange timezone.
+gNews     = "News / avoid window"
+useNews   = input.bool(false,"Enable news/avoid window", group=gNews)
+newsStart = input.time(timestamp("2024-01-01 00:00 +0000"), "News window start", group=gNews)
+newsEnd   = input.time(timestamp("2024-01-01 01:00 +0000"), "News window end",   group=gNews)
+
+// --- Display toggles ---------------------------------------------------------
+gDisp          = "Display"
+showDash       = input.bool(true, "Show dashboard", group=gDisp)
+showPhantom    = input.bool(true, "Show phantom levels", group=gDisp)
+showProvisional= input.bool(false,"Show live forming signals (faint)", group=gDisp)
+
+// --- Palette -----------------------------------------------------------------
+colBuy   = #26a69a
+colSell  = #ef5350
+colSL    = color.red
+colTrail = color.orange
+colAdd   = color.blue
+colExit  = color.yellow
+
+// 4. ----------------------------------------------------------------- TYPE DEFS
+type LiquidityLevel
+    float price
+    bool  isBuyer      // true = buyer liquidity (below), false = seller (above)
+    bool  isActive
+    bool  isPhantom
+    int   bornBar
+    int   invalidBar   // bar index when it became phantom (-1 if active)
+    int   touches
+    line  ln
+    label lbl
+
+var array<LiquidityLevel> levels = array.new<LiquidityLevel>()
+
+// 5. ----------------------------------------------------------------- CORE CALCS
+atr      = ta.atr(atrLen)
+volSma   = ta.sma(volume, volLen)
+volSpike = volume > volSma * volMult
+hl       = high - low
+rng      = math.max(hl, syminfo.mintick)
+bodyRatio= math.abs(close - open) / rng
+
+// Delta PROXY (NOT real bid/ask delta): close position within the bar range.
+bullAggr = (close - low) / rng >= closePosMin and volSpike and bodyRatio >= bodyMin
+bearAggr = (high - close) / rng >= closePosMin and volSpike and bodyRatio >= bodyMin
+
+emaF = ta.ema(close, emaFast)
+emaS = ta.ema(close, emaSlow)
+trendLongOK  = not useTrend or (close > emaF and emaF > emaS)
+trendShortOK = not useTrend or (close < emaF and emaF < emaS)
+
+inNews = useNews and time >= newsStart and time <= newsEnd
+
+buf     = breakBufferAtr * atr
+tickBuf = stopBufferTicks * syminfo.mintick
+
+// Round-number step: auto-derive a sane step from price magnitude when 0.
+rstep = roundStep > 0 ? roundStep :
+       close >= 1000 ? 10.0 :
+       close >= 100  ? 1.0  :
+       close >= 10   ? 0.5  :
+       close >= 1    ? 0.1  :
+       close >= 0.1  ? 0.01 : syminfo.mintick * 10
+roundBelow = math.floor(close / rstep) * rstep
+roundAbove = math.ceil(close / rstep) * rstep
+
+// Confirmed pivots (lagged by pivotLen, then fixed — not repainting).
+ph = ta.pivothigh(pivotLen, pivotLen)
+pl = ta.pivotlow(pivotLen, pivotLen)
+
+// 6. ------------------------------------------- CONFIRMATION-TF + TRAIL-TF HELPERS
+// HTF confirmation: request the PRIOR closed HTF bar's aggression so no unclosed
+// data is used. lookahead_off mandatory. HTF confirmation adds lag (by design).
+confTFstr = confTF == "Chart" ? timeframe.period : (confTF == "1M" ? "1" : "5")
+trailTFstr= trailTF == "15S" ? "15S" : (trailTF == "1M" ? "1" : "5")
+
+f_htfAggr() =>
+    vs    = ta.sma(volume, volLen)
+    spk   = volume > vs * volMult
+    r     = math.max(high - low, syminfo.mintick)
+    bull  = (close - low) / r >= closePosMin and spk
+    bear  = (high - close) / r >= closePosMin and spk
+    [bull[1], bear[1]]
+
+[htfBull, htfBear] = request.security(syminfo.tickerid, confTFstr, f_htfAggr(), lookahead=barmerge.lookahead_off)
+
+// Confirmation gate: on "Chart" use this bar's aggression; else require HTF agree.
+confLongOK  = confTF == "Chart" ? bullAggr : htfBull
+confShortOK = confTF == "Chart" ? bearAggr : htfBear
+
+// Trail TF swing (most recent confirmed higher-low / lower-high). 15s may be
+// unavailable on some plans/symbols -> returns na -> we fall back to chart TF.
+f_trailSwing() =>
+    pll = ta.pivotlow(2, 2)
+    phh = ta.pivothigh(2, 2)
+    lpl = ta.valuewhen(not na(pll), pll, 0)
+    lph = ta.valuewhen(not na(phh), phh, 0)
+    [lpl, lph]
+
+[trailLowRaw, trailHighRaw] = request.security(syminfo.tickerid, trailTFstr, f_trailSwing(), lookahead=barmerge.lookahead_off)
+trailTFunavail = na(trailLowRaw) or na(trailHighRaw)
+
+// Chart-TF fallback swing
+plChart = ta.pivotlow(2, 2)
+phChart = ta.pivothigh(2, 2)
+lastPLchart = ta.valuewhen(not na(plChart), plChart, 0)
+lastPHchart = ta.valuewhen(not na(phChart), phChart, 0)
+
+trailLong  = trailTFunavail ? lastPLchart : trailLowRaw
+trailShort = trailTFunavail ? lastPHchart : trailHighRaw
+
+// ----------------------------------------------------------------- helpers
+deleteLevel(L) =>
+    if not na(L.ln)
+        line.delete(L.ln)
+    if not na(L.lbl)
+        label.delete(L.lbl)
+
+// dedup + add. If a same-side active level already sits within `tol`, treat it
+// as an equal-high/low and just increment its touch count (no duplicate).
+addLevel(price, isBuyer, curBar, tol) =>
+    found = false
+    if array.size(levels) > 0
+        for i = 0 to array.size(levels) - 1
+            L = array.get(levels, i)
+            if L.isActive and L.isBuyer == isBuyer and math.abs(L.price - price) <= tol
+                L.touches := L.touches + 1
+                found := true
+                break
+    if not found
+        col = isBuyer ? colBuy : colSell
+        ln  = line.new(curBar, price, curBar + 1, price, extend=extend.right, color=col, width=2)
+        nl  = LiquidityLevel.new(price, isBuyer, true, false, curBar, -1, 1, ln, na)
+        array.push(levels, nl)
+
+// 7. ----------------------------------------------------------------- LEVEL ENGINE
+// Persistent trade state
+var int    tradeDir       = 0      // 1 long, -1 short, 0 flat
+var float  lastEntryLevel = na
+var float  lastEntryPrice = na
+var int    lastEntryBar   = na
+var float  slPrice        = na
+var int    addCount       = 0
+var int    lastSignalDir  = 0
+var float  lastBrokenLevel= na
+var string lastSigTxt     = "—"
+var line   slLine         = na
+var line   trailLine      = na
+var label  slLbl          = na
+var label  trailLbl       = na
+var array<int> sigHist    = array.new<int>()
+
+// Confirmed-bar booleans for plotting / alerts (reset every bar; set on close)
+bool longSig    = false
+bool shortSig   = false
+bool addLongSig = false
+bool addShortSig= false
+bool exitSig    = false
+bool sweepSig   = false
+
+eqTol = eqTolMult * atr
+
+if barstate.isconfirmed
+    // --- 7a. Detect & add candidate levels -----------------------------------
+    // Pivot-derived (lagged): pivot high -> seller above; pivot low -> buyer below
+    if not na(ph)
+        addLevel(ph, false, bar_index - pivotLen, eqTol)
+    if not na(pl)
+        addLevel(pl, true, bar_index - pivotLen, eqTol)
+    // High-volume candle extremes
+    if volSpike
+        if high > close
+            addLevel(high, false, bar_index, eqTol)
+        if low < close
+            addLevel(low, true, bar_index, eqTol)
+    // Round numbers
+    if useRound
+        if roundBelow < close
+            addLevel(roundBelow, true, bar_index, eqTol)
+        if roundAbove > close
+            addLevel(roundAbove, false, bar_index, eqTol)
+
+    // --- 7b. Invalidation -> phantom -> expire (iterate descending for safe remove)
+    if array.size(levels) > 0
+        for i = array.size(levels) - 1 to 0
+            L = array.get(levels, i)
+            if L.isActive
+                brokenSell = not L.isBuyer and close > L.price + buf  // seller taken upward
+                brokenBuy  = L.isBuyer and close < L.price - buf      // buyer taken downward
+                if brokenSell or brokenBuy
+                    L.isActive   := false
+                    L.isPhantom  := true
+                    L.invalidBar := bar_index
+                    lastBrokenLevel := L.price
+                    line.set_extend(L.ln, extend.none)
+                    line.set_width(L.ln, 1)
+                    line.set_color(L.ln, color.new(L.isBuyer ? colBuy : colSell, phantomOpacity))
+                    if not showPhantom
+                        deleteLevel(L)
+                        array.remove(levels, i)
+            else if L.isPhantom
+                if bar_index - L.invalidBar > phantomBars
+                    deleteLevel(L)
+                    array.remove(levels, i)
+
+    // --- 7c. Prune to maxLevels (oldest inactive/phantom first, else oldest) --
+    while array.size(levels) > maxLevels
+        remIdx = -1
+        oldest = 2147483647
+        for i = 0 to array.size(levels) - 1
+            L = array.get(levels, i)
+            if (not L.isActive or L.isPhantom) and L.bornBar < oldest
+                oldest := L.bornBar
+                remIdx := i
+        if remIdx == -1
+            oldest := 2147483647
+            for i = 0 to array.size(levels) - 1
+                L = array.get(levels, i)
+                if L.bornBar < oldest
+                    oldest := L.bornBar
+                    remIdx := i
+        if remIdx >= 0
+            deleteLevel(array.get(levels, remIdx))
+            array.remove(levels, remIdx)
+        else
+            break
+
+// 8. ----------------------------------------------------------------- SWEEP / ENTRY
+// Sweep compares THIS closed bar's wick/close against a level that existed on a
+// PRIOR bar (L.bornBar < bar_index) — never a level created on the same bar.
+    // Long: buyer level pierced by wick then reclaimed on close + bull aggression
+    bestLong = -1
+    bestLongD = 1e20
+    bestShort = -1
+    bestShortD = 1e20
+    if array.size(levels) > 0
+        for i = 0 to array.size(levels) - 1
+            L = array.get(levels, i)
+            if L.isActive and L.bornBar < bar_index
+                if L.isBuyer and L.price < high and low < L.price and close > L.price
+                    d = math.abs(close - L.price)
+                    if d < bestLongD
+                        bestLongD := d
+                        bestLong  := i
+                if (not L.isBuyer) and L.price > low and high > L.price and close < L.price
+                    d2 = math.abs(close - L.price)
+                    if d2 < bestShortD
+                        bestShortD := d2
+                        bestShort  := i
+
+    canLong  = bestLong  >= 0 and bullAggr and confLongOK  and trendLongOK  and not inNews and tradeDir != 1
+    canShort = bestShort >= 0 and bearAggr and confShortOK and trendShortOK and not inNews and tradeDir != -1
+
+    if canLong
+        L = array.get(levels, bestLong)
+        // mark the swept level as taken (phantom)
+        L.isActive   := false
+        L.isPhantom  := true
+        L.invalidBar := bar_index
+        line.set_extend(L.ln, extend.none)
+        line.set_width(L.ln, 1)
+        line.set_color(L.ln, color.new(colBuy, phantomOpacity))
+        longSig        := true
+        sweepSig       := true
+        tradeDir       := 1
+        lastSignalDir  := 1
+        lastEntryLevel := L.price
+        lastEntryPrice := close
+        lastEntryBar   := bar_index
+        slPrice        := L.price - atr * atrMult - tickBuf
+        addCount       := 0
+        lastSigTxt     := "LONG sweep"
+        label.new(bar_index, low, "½ LONG", style=label.style_label_up, color=color.new(colBuy, 0), textcolor=color.white, size=size.small, yloc=yloc.belowbar)
+        array.push(sigHist, bar_index)
+    else if canShort
+        L = array.get(levels, bestShort)
+        L.isActive   := false
+        L.isPhantom  := true
+        L.invalidBar := bar_index
+        line.set_extend(L.ln, extend.none)
+        line.set_width(L.ln, 1)
+        line.set_color(L.ln, color.new(colSell, phantomOpacity))
+        shortSig       := true
+        sweepSig       := true
+        tradeDir       := -1
+        lastSignalDir  := -1
+        lastEntryLevel := L.price
+        lastEntryPrice := close
+        lastEntryBar   := bar_index
+        slPrice        := L.price + atr * atrMult + tickBuf
+        addCount       := 0
+        lastSigTxt     := "SHORT sweep"
+        label.new(bar_index, high, "½ SHORT", style=label.style_label_down, color=color.new(colSell, 0), textcolor=color.white, size=size.small, yloc=yloc.abovebar)
+        array.push(sigHist, bar_index)
+
+// 9. ----------------------------------------------------------------- SCALING (ADD)
+// Add only when, in the active direction, a confirmed bar closes beyond the
+// nearest same-direction level past the entry, WITH volume confirmation.
+    if tradeDir != 0 and addCount < maxAdds and not inNews and volSpike
+        if tradeDir == 1
+            addIdx = -1
+            nearAbove = 1e20
+            if array.size(levels) > 0
+                for i = 0 to array.size(levels) - 1
+                    L = array.get(levels, i)
+                    if L.isActive and L.price > lastEntryLevel and close > L.price + buf
+                        if (L.price - lastEntryLevel) < nearAbove
+                            nearAbove := L.price - lastEntryLevel
+                            addIdx := i
+            if addIdx >= 0
+                L = array.get(levels, addIdx)
+                addLongSig := true
+                addCount   := addCount + 1
+                lastBrokenLevel := L.price
+                // Move suggested stop up to the freshly broken level (now support).
+                slPrice    := L.price - atr * atrMult - tickBuf
+                lastSigTxt := "ADD long"
+                L.isActive   := false
+                L.isPhantom  := true
+                L.invalidBar := bar_index
+                line.set_extend(L.ln, extend.none)
+                line.set_width(L.ln, 1)
+                line.set_color(L.ln, color.new(colSell, phantomOpacity))
+                label.new(bar_index, high, "ADD", style=label.style_label_down, color=color.new(colAdd, 0), textcolor=color.white, size=size.small, yloc=yloc.abovebar)
+                array.push(sigHist, bar_index)
+        else if tradeDir == -1
+            addIdx = -1
+            nearBelow = 1e20
+            if array.size(levels) > 0
+                for i = 0 to array.size(levels) - 1
+                    L = array.get(levels, i)
+                    if L.isActive and L.price < lastEntryLevel and close < L.price - buf
+                        if (lastEntryLevel - L.price) < nearBelow
+                            nearBelow := lastEntryLevel - L.price
+                            addIdx := i
+            if addIdx >= 0
+                L = array.get(levels, addIdx)
+                addShortSig := true
+                addCount    := addCount + 1
+                lastBrokenLevel := L.price
+                slPrice     := L.price + atr * atrMult + tickBuf
+                lastSigTxt  := "ADD short"
+                L.isActive   := false
+                L.isPhantom  := true
+                L.invalidBar := bar_index
+                line.set_extend(L.ln, extend.none)
+                line.set_width(L.ln, 1)
+                line.set_color(L.ln, color.new(colBuy, phantomOpacity))
+                label.new(bar_index, low, "ADD", style=label.style_label_up, color=color.new(colAdd, 0), textcolor=color.white, size=size.small, yloc=yloc.belowbar)
+                array.push(sigHist, bar_index)
+
+// 11. ----------------------------------------------------------------- EXIT / CAUTION
+    if tradeDir != 0
+        proxBuf = proxNearAtr * atr
+        oppNear = false
+        if array.size(levels) > 0
+            for i = 0 to array.size(levels) - 1
+                L = array.get(levels, i)
+                if L.isActive
+                    if tradeDir == 1 and (not L.isBuyer) and L.price > close and L.price - close <= proxBuf
+                        oppNear := true
+                    if tradeDir == -1 and L.isBuyer and L.price < close and close - L.price <= proxBuf
+                        oppNear := true
+        smallBody = bodyRatio < bodyMin
+        stall     = smallBody and smallBody[1] and smallBody[2]
+        volDecl   = volume < volume[1] and volume[1] < volume[2]
+        revWickLong  = tradeDir == 1  and (high - close) / rng >= closePosMin and oppNear
+        revWickShort = tradeDir == -1 and (close - low) / rng >= closePosMin and oppNear
+        exitSig := oppNear or stall or volDecl or revWickLong or revWickShort
+        if exitSig
+            lastSigTxt := "EXIT"
+            lbly = tradeDir == 1 ? high : low
+            lstyle = tradeDir == 1 ? label.style_label_down : label.style_label_up
+            lyloc = tradeDir == 1 ? yloc.abovebar : yloc.belowbar
+            label.new(bar_index, lbly, "EXIT", style=lstyle, color=color.new(colExit, 0), textcolor=color.black, size=size.small, yloc=lyloc)
+            tradeDir := 0
+
+// 10. ----------------------------------------------------- STOP + TRAILING LINES
+    if tradeDir != 0
+        // SL line (dashed red, extends right, updated while idea is live)
+        if na(slLine)
+            slLine := line.new(lastEntryBar, slPrice, bar_index, slPrice, color=colSL, style=line.style_dashed, width=2, extend=extend.right)
+            slLbl  := label.new(bar_index, slPrice, "SL", style=label.style_label_left, color=color.new(colSL, 0), textcolor=color.white, size=size.tiny)
+        else
+            line.set_xy1(slLine, lastEntryBar, slPrice)
+            line.set_xy2(slLine, bar_index, slPrice)
+            label.set_xy(slLbl, bar_index, slPrice)
+        // TRAIL line (dotted orange)
+        trailPrice = tradeDir == 1 ? trailLong : trailShort
+        if not na(trailPrice)
+            if na(trailLine)
+                trailLine := line.new(lastEntryBar, trailPrice, bar_index, trailPrice, color=colTrail, style=line.style_dotted, width=2, extend=extend.right)
+                trailLbl  := label.new(bar_index, trailPrice, "TRAIL", style=label.style_label_left, color=color.new(colTrail, 0), textcolor=color.black, size=size.tiny)
+            else
+                line.set_xy1(trailLine, lastEntryBar, trailPrice)
+                line.set_xy2(trailLine, bar_index, trailPrice)
+                label.set_xy(trailLbl, bar_index, trailPrice)
+    else
+        // Flat: stop extending / clean up risk lines
+        if not na(slLine)
+            line.delete(slLine)
+            slLine := na
+        if not na(slLbl)
+            label.delete(slLbl)
+            slLbl := na
+        if not na(trailLine)
+            line.delete(trailLine)
+            trailLine := na
+        if not na(trailLbl)
+            label.delete(trailLbl)
+            trailLbl := na
+
+// ---- Provisional (forming-bar) scan: cosmetic only, never fires alerts -------
+bool longProv  = false
+bool shortProv = false
+if showProvisional and barstate.isrealtime and not barstate.isconfirmed and array.size(levels) > 0
+    for i = 0 to array.size(levels) - 1
+        L = array.get(levels, i)
+        if L.isActive and L.bornBar < bar_index
+            if L.isBuyer and low < L.price and close > L.price and bullAggr
+                longProv := true
+            if (not L.isBuyer) and high > L.price and close < L.price and bearAggr
+                shortProv := true
+
+// 12. ----------------------------------------------------------------- NEWS GATING
+bgcolor(inNews ? color.new(color.gray, 85) : na, title="News window")
+
+// 13. ----------------------------------------------------------------- PLOTS
+// Confirmed entry arrows (only print on closed bars; never repaint).
+plotshape(longSig,  title="Long entry",  style=shape.triangleup,   location=location.belowbar, color=color.new(colBuy, 0),  size=size.small)
+plotshape(shortSig, title="Short entry", style=shape.triangledown, location=location.abovebar, color=color.new(colSell, 0), size=size.small)
+// Provisional (faint, live only)
+plotshape(longProv,  title="Long forming",  style=shape.triangleup,   location=location.belowbar, color=color.new(colBuy, 70),  size=size.tiny)
+plotshape(shortProv, title="Short forming", style=shape.triangledown, location=location.abovebar, color=color.new(colSell, 70), size=size.tiny)
+
+// EMAs (only when trend filter on)
+plot(useTrend ? emaF : na, "EMA fast", color=color.new(color.aqua, 40), linewidth=1)
+plot(useTrend ? emaS : na, "EMA slow", color=color.new(color.fuchsia, 40), linewidth=1)
+
+// 14. ----------------------------------------------------------------- DASHBOARD
+var table dash = table.new(position.top_right, 2, 9, border_width=1, frame_width=1, frame_color=color.new(color.gray, 50))
+if showDash and barstate.islast
+    int buyerCnt = 0
+    int sellerCnt = 0
+    if array.size(levels) > 0
+        for i = 0 to array.size(levels) - 1
+            L = array.get(levels, i)
+            if L.isActive
+                if L.isBuyer
+                    buyerCnt := buyerCnt + 1
+                else
+                    sellerCnt := sellerCnt + 1
+
+    // Bias
+    string bias = "Neutral"
+    if useTrend
+        bias := close > emaF and emaF > emaS ? "Bullish" : close < emaF and emaF < emaS ? "Bearish" : "Neutral"
+    else
+        bias := lastSignalDir == 1 ? "Bullish" : lastSignalDir == -1 ? "Bearish" : "Neutral"
+    biasCol = bias == "Bullish" ? color.new(colBuy, 0) : bias == "Bearish" ? color.new(colSell, 0) : color.new(color.gray, 0)
+
+    // Overtrading: count signals in the last 100 bars
+    int recent = 0
+    if array.size(sigHist) > 0
+        for i = 0 to array.size(sigHist) - 1
+            if array.get(sigHist, i) >= bar_index - 100
+                recent := recent + 1
+
+    counterTrend = useTrend and ((tradeDir == 1 and not (close > emaF and emaF > emaS)) or (tradeDir == -1 and not (close < emaF and emaF < emaS)))
+
+    string warn = "OK"
+    if recent > 6
+        warn := "Many signals (overtrading?)"
+    if counterTrend
+        warn := "Counter-trend"
+    if trailTFunavail
+        warn := "Trail TF unavailable → chart"
+    if inNews
+        warn := "News window active"
+    warnCol = warn == "OK" ? color.new(colBuy, 0) : color.new(colExit, 0)
+
+    table.cell(dash, 0, 0, "LMA-OF", text_color=color.white, bgcolor=color.new(color.black, 0), text_size=size.small)
+    table.cell(dash, 1, 0, "approx.", text_color=color.gray, bgcolor=color.new(color.black, 0), text_size=size.small)
+    table.cell(dash, 0, 1, "Bias", text_color=color.white, text_size=size.small)
+    table.cell(dash, 1, 1, bias, text_color=color.white, bgcolor=biasCol, text_size=size.small)
+    table.cell(dash, 0, 2, "Buyer levels", text_color=color.white, text_size=size.small)
+    table.cell(dash, 1, 2, str.tostring(buyerCnt), text_color=color.new(colBuy, 0), text_size=size.small)
+    table.cell(dash, 0, 3, "Seller levels", text_color=color.white, text_size=size.small)
+    table.cell(dash, 1, 3, str.tostring(sellerCnt), text_color=color.new(colSell, 0), text_size=size.small)
+    table.cell(dash, 0, 4, "Last signal", text_color=color.white, text_size=size.small)
+    table.cell(dash, 1, 4, lastSigTxt, text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 5, "ATR", text_color=color.white, text_size=size.small)
+    table.cell(dash, 1, 5, str.tostring(atr, format.mintick), text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 6, "Vol confirm", text_color=color.white, text_size=size.small)
+    table.cell(dash, 1, 6, volSpike ? "YES" : "NO", text_color=volSpike ? color.new(colBuy, 0) : color.gray, text_size=size.small)
+    table.cell(dash, 0, 7, "Trade / adds", text_color=color.white, text_size=size.small)
+    table.cell(dash, 1, 7, (tradeDir == 1 ? "LONG" : tradeDir == -1 ? "SHORT" : "—") + " / " + str.tostring(addCount), text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 8, "Risk", text_color=color.white, text_size=size.small)
+    table.cell(dash, 1, 8, warn, text_color=color.black, bgcolor=warnCol, text_size=size.small)
+
+// 15. ----------------------------------------------------------------- ALERTS
+// IMPORTANT: create every alert with "Once Per Bar Close" to match the
+// non-repaint design. All conditions below evaluate on confirmed bars only.
+alertcondition(longSig,     title="Long setup confirmed",   message="LMA-OF LONG sweep confirmed on {{ticker}} {{interval}}")
+alertcondition(shortSig,    title="Short setup confirmed",  message="LMA-OF SHORT sweep confirmed on {{ticker}} {{interval}}")
+alertcondition(addLongSig,  title="Add long",               message="LMA-OF ADD long on {{ticker}} {{interval}}")
+alertcondition(addShortSig, title="Add short",              message="LMA-OF ADD short on {{ticker}} {{interval}}")
+alertcondition(exitSig,     title="Exit / caution",         message="LMA-OF EXIT/CAUTION on {{ticker}} {{interval}}")
+alertcondition(sweepSig,    title="Liquidity sweep detected",message="LMA-OF liquidity sweep on {{ticker}} {{interval}}")
+
+// ============================================================================
+// TESTING (also in README.md §11)
+//  1. Add to XAUUSD M5 then M1. Confirm levels draw, extend right, turn phantom
+//     after being broken.
+//  2. Repaint check (Bar Replay): step forward, note the bar a confirmed signal
+//     prints on; disable replay — the arrow must be on the same closed bar.
+//     Pivot levels appear pivotLen bars after the pivot (expected lag).
+//  3. Live vs close: with showProvisional on, faint shapes may flicker intrabar;
+//     the solid confirmed shape only settles on close.
+//  4. Toggle trend / news / phantom / dashboard and verify behavior changes.
+//  5. News window: set a window over a known session; confirm grey bg and that
+//     no new entries fire inside it.
+//  6. Stress: maxLevels=200, scroll back thousands of bars; no object-limit error.
+//  7. Round numbers: test on index/crypto; roundStep=0 auto-derives; manual overrides.
+//  8. Trail TF: set trailTF=15S on a symbol without 15s data; dashboard shows
+//     "Trail TF unavailable → chart" instead of erroring.
+// ============================================================================

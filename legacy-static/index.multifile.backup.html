@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Afsahi Luxury Transport | Premium Chauffeur Service in Morocco</title>
+  <meta name="description" content="Afsahi Luxury Transport — discreet, world-class chauffeur service in Casablanca and across Morocco. Airport transfers, hourly hire, executive vans and intercity travel in effortless luxury." />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://afsahi.example/" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Afsahi Luxury Transport" />
+  <meta property="og:title" content="Afsahi Luxury Transport | Premium Chauffeur Service in Morocco" />
+  <meta property="og:description" content="Arrive in effortless luxury. Discreet, professional chauffeur service in Casablanca and across Morocco." />
+  <meta property="og:image" content="public/images/hero-sedan.jpg" />
+  <meta property="og:locale" content="en_US" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Afsahi Luxury Transport | Premium Chauffeur Service in Morocco" />
+  <meta name="twitter:description" content="Arrive in effortless luxury. Discreet, professional chauffeur service across Morocco." />
+  <meta name="twitter:image" content="public/images/hero-sedan.jpg" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "LimousineService",
+    "name": "Afsahi Luxury Transport",
+    "description": "Premium chauffeur and luxury transport service operating in Casablanca and across Morocco.",
+    "image": "public/images/hero-sedan.jpg",
+    "areaServed": { "@type": "Country", "name": "Morocco" },
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Casablanca",
+      "addressCountry": "MA"
+    },
+    "telephone": "+212 5 22 00 00 00",
+    "priceRange": "$$$$",
+    "openingHours": "Mo-Su 00:00-23:59"
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <!-- NAV -->
+  <header class="nav" id="nav">
+    <div class="nav__inner">
+      <a href="#hero" class="brand" aria-label="Afsahi Luxury Transport home">
+        <span class="brand__name">AFSAHI</span>
+        <span class="brand__tag">Luxury Transport</span>
+      </a>
+
+      <nav class="nav__links" aria-label="Primary">
+        <a href="#services">Services</a>
+        <a href="#fleet">Fleet</a>
+        <a href="#experience">Experience</a>
+        <a href="#contact">Contact</a>
+      </nav>
+
+      <div class="nav__actions">
+        <a href="#book" class="btn btn--gold nav__book">Book Now</a>
+        <button class="nav__toggle" id="navToggle" aria-label="Open menu" aria-expanded="false" aria-controls="mobileMenu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile menu -->
+    <div class="mobile-menu" id="mobileMenu" aria-hidden="true">
+      <a href="#services">Services</a>
+      <a href="#fleet">Fleet</a>
+      <a href="#experience">Experience</a>
+      <a href="#contact">Contact</a>
+      <a href="#book" class="btn btn--gold">Book Now</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- HERO -->
+    <section class="hero" id="hero">
+      <div class="hero__media">
+        <img class="hero__img" src="public/images/hero-sedan.jpg"
+             alt="Black Mercedes luxury sedan waiting at night in front of an airport terminal" />
+        <div class="hero__overlay"></div>
+        <canvas class="hero__particles" id="heroParticles" aria-hidden="true"></canvas>
+      </div>
+
+      <div class="hero__content">
+        <div class="hero__copy">
+          <span class="eyebrow" data-hero>Casablanca &middot; Morocco</span>
+          <h1 class="hero__title">
+            <span data-hero>Arrive in</span>
+            <span data-hero><em>Effortless</em> Luxury</span>
+          </h1>
+          <p class="hero__sub" data-hero>
+            A discreet chauffeur service for those who measure travel in calm,
+            precision and quiet confidence — across Casablanca and all of Morocco.
+          </p>
+          <div class="hero__cues" data-hero>
+            <span><i class="dot"></i> Chauffeured, never rushed</span>
+            <span><i class="dot"></i> Available 24/7</span>
+          </div>
+        </div>
+
+        <!-- BOOKING FORM -->
+        <aside class="booking" id="book" aria-label="Request a chauffeur">
+          <form class="booking__card" id="bookingForm" novalidate>
+            <header class="booking__head">
+              <span class="eyebrow eyebrow--gold">Reserve</span>
+              <h2 class="booking__title">Request Your Chauffeur</h2>
+            </header>
+
+            <div class="seg" role="tablist" aria-label="Trip type">
+              <button type="button" class="seg__btn is-active" role="tab" aria-selected="true" data-trip="Airport Transfer">Airport</button>
+              <button type="button" class="seg__btn" role="tab" aria-selected="false" data-trip="Hourly">Hourly</button>
+              <button type="button" class="seg__btn" role="tab" aria-selected="false" data-trip="Intercity">Intercity</button>
+              <span class="seg__slider" aria-hidden="true"></span>
+            </div>
+            <input type="hidden" id="tripType" name="tripType" value="Airport Transfer" />
+
+            <div class="field">
+              <label for="pickup">Pickup location</label>
+              <input type="text" id="pickup" name="pickup" placeholder="Mohammed V Airport, Casablanca" autocomplete="off" />
+            </div>
+
+            <div class="field">
+              <label for="dropoff">Drop-off</label>
+              <input type="text" id="dropoff" name="dropoff" placeholder="Four Seasons, Anfa" autocomplete="off" />
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label for="date">Date</label>
+                <input type="date" id="date" name="date" />
+              </div>
+              <div class="field">
+                <label for="time">Time</label>
+                <input type="time" id="time" name="time" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="passengers">Passengers</label>
+              <select id="passengers" name="passengers">
+                <option value="1">1 passenger</option>
+                <option value="2">2 passengers</option>
+                <option value="3">3 passengers</option>
+                <option value="4">4 passengers</option>
+                <option value="5">5 – 7 (Executive Van)</option>
+              </select>
+            </div>
+
+            <button type="submit" class="btn btn--gold btn--block">Request Chauffeur</button>
+            <p class="booking__note" id="bookingNote" role="status" aria-live="polite"></p>
+          </form>
+        </aside>
+      </div>
+
+      <div class="hero__scroll" aria-hidden="true"><span>Scroll</span><i></i></div>
+    </section>
+
+    <!-- TRUST STRIP -->
+    <section class="trust" aria-label="Why Afsahi">
+      <div class="trust__inner">
+        <div class="trust__item"><h3>Professional Chauffeurs</h3><p>Vetted, discreet, impeccably presented</p></div>
+        <div class="trust__item"><h3>Flight Tracking</h3><p>We adjust to every delay, automatically</p></div>
+        <div class="trust__item"><h3>Fixed Transparent Pricing</h3><p>Quoted upfront — never metered surprises</p></div>
+        <div class="trust__item"><h3>24/7 Concierge</h3><p>A human, any hour, every day</p></div>
+      </div>
+    </section>
+
+    <!-- SERVICES -->
+    <section class="services" id="services">
+      <div class="section-head reveal">
+        <span class="eyebrow eyebrow--gold">Our Services</span>
+        <h2>Travel, refined to a discipline</h2>
+        <p>Four ways to move through Morocco with the same uncompromising standard of care.</p>
+      </div>
+
+      <article class="srow reveal">
+        <div class="srow__media">
+          <img src="public/images/meet-greet.jpg" alt="Chauffeur greeting a VIP passenger at airport arrivals with a name sign" />
+          <span class="srow__index">01</span>
+        </div>
+        <div class="srow__body">
+          <span class="eyebrow eyebrow--gold">Airport Transfers</span>
+          <h3>Met, not merely collected</h3>
+          <p>Your chauffeur waits in arrivals before you land, tracking your flight in real time. Bags handled, water chilled, the route already known. You simply step into the car.</p>
+          <a href="#book" class="link-gold">Reserve a transfer <span aria-hidden="true">&rarr;</span></a>
+        </div>
+      </article>
+
+      <article class="srow srow--reverse reveal">
+        <div class="srow__media">
+          <img src="public/images/chauffeur-door.jpg" alt="Chauffeur in dark suit opening the rear door of a luxury car for a passenger" />
+          <span class="srow__index">02</span>
+        </div>
+        <div class="srow__body">
+          <span class="eyebrow eyebrow--gold">Business &amp; Hourly Hire</span>
+          <h3>Your day, on retainer</h3>
+          <p>Meetings across the city, an evening that runs long, a deal that needs a quiet place to think. Book by the hour and keep the same car and chauffeur at your disposal.</p>
+          <a href="#book" class="link-gold">Hire by the hour <span aria-hidden="true">&rarr;</span></a>
+        </div>
+      </article>
+
+      <article class="srow reveal">
+        <div class="srow__media">
+          <img src="public/images/van-interior.jpg" alt="Interior of a luxury van with soft ambient lighting and leather seating" />
+          <span class="srow__index">03</span>
+        </div>
+        <div class="srow__body">
+          <span class="eyebrow eyebrow--gold">Group &amp; Executive Van</span>
+          <h3>Together, in comfort</h3>
+          <p>For delegations, families and teams. Our executive vans seat up to seven in a cabin of soft ambient light and generous space — every journey as composed as a private suite.</p>
+          <a href="#book" class="link-gold">Request a van <span aria-hidden="true">&rarr;</span></a>
+        </div>
+      </article>
+
+      <article class="srow srow--reverse reveal">
+        <div class="srow__media">
+          <img src="public/images/morocco-road.jpg" alt="Luxury car on an open Moroccan road near Casablanca at golden hour" />
+          <span class="srow__index">04</span>
+        </div>
+        <div class="srow__body">
+          <span class="eyebrow eyebrow--gold">Intercity Morocco</span>
+          <h3>The kingdom, between cities</h3>
+          <p>Casablanca to Marrakech, Rabat to Tangier. Long stretches of road become part of the pleasure — with a chauffeur who knows when to talk and when to let the country pass in silence.</p>
+          <a href="#book" class="link-gold">Plan a journey <span aria-hidden="true">&rarr;</span></a>
+        </div>
+      </article>
+    </section>
+
+    <!-- FLEET / EXPERIENCE PARALLAX -->
+    <section class="experience" id="experience">
+      <div class="experience__media">
+        <img src="public/images/morocco-road.jpg" alt="Luxury vehicle traveling an open Moroccan highway at dusk" id="exImg" />
+        <div class="experience__overlay"></div>
+      </div>
+      <div class="experience__content reveal">
+        <span class="eyebrow eyebrow--gold">The Afsahi Experience</span>
+        <h2>A standard you feel before you can name it</h2>
+        <p>Hand-selected sedans and vans, maintained to a fault. Chilled water, device charging, and a cabin kept at exactly your preference. Silence when you want it, conversation when you don't. This is luxury as restraint — nothing missing, nothing excessive.</p>
+        <div class="experience__stats">
+          <div><strong>12 min</strong><span>average chauffeur arrival</span></div>
+          <div><strong>100%</strong><span>fixed quoted pricing</span></div>
+          <div><strong>4.9/5</strong><span>guest satisfaction</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FLEET CARDS -->
+    <section class="fleet" id="fleet">
+      <div class="section-head reveal">
+        <span class="eyebrow eyebrow--gold">The Fleet</span>
+        <h2>Chosen for presence, kept for grace</h2>
+      </div>
+      <div class="fleet__grid">
+        <article class="fcard reveal">
+          <div class="fcard__media"><img src="public/images/hero-sedan.jpg" alt="Black luxury sedan exterior at night" /></div>
+          <div class="fcard__body">
+            <span class="eyebrow eyebrow--gold">Business Class</span>
+            <h3>Mercedes E-Class &amp; equivalent</h3>
+            <p>Up to 3 guests &middot; 3 bags</p>
+          </div>
+        </article>
+        <article class="fcard reveal">
+          <div class="fcard__media"><img src="public/images/chauffeur-door.jpg" alt="Chauffeur opening the door of a first-class sedan" /></div>
+          <div class="fcard__body">
+            <span class="eyebrow eyebrow--gold">First Class</span>
+            <h3>Mercedes S-Class &amp; equivalent</h3>
+            <p>Up to 3 guests &middot; 2 bags</p>
+          </div>
+        </article>
+        <article class="fcard reveal">
+          <div class="fcard__media"><img src="public/images/van-interior.jpg" alt="Luxury executive van interior with ambient lighting" /></div>
+          <div class="fcard__body">
+            <span class="eyebrow eyebrow--gold">Executive Van</span>
+            <h3>Mercedes V-Class &amp; equivalent</h3>
+            <p>Up to 7 guests &middot; 7 bags</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="how" aria-label="How it works">
+      <div class="section-head reveal">
+        <span class="eyebrow eyebrow--gold">How It Works</span>
+        <h2>Three quiet steps</h2>
+      </div>
+      <ol class="how__steps">
+        <li class="how__step reveal">
+          <span class="how__num">I</span>
+          <h3>Book</h3>
+          <p>Tell us where and when. Receive a fixed price and confirmation in moments.</p>
+        </li>
+        <li class="how__step reveal">
+          <span class="how__num">II</span>
+          <h3>Meet your chauffeur</h3>
+          <p>Your driver arrives early, ready and unhurried — by name, on your terms.</p>
+        </li>
+        <li class="how__step reveal">
+          <span class="how__num">III</span>
+          <h3>Arrive</h3>
+          <p>Settle in and let the journey dissolve. You arrive composed, on time, untroubled.</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- TESTIMONIALS -->
+    <section class="quotes" aria-label="What our guests say">
+      <span class="quotes__mark" aria-hidden="true">&ldquo;</span>
+      <div class="quotes__track" id="quotesTrack">
+        <figure class="quote reveal">
+          <blockquote>Afsahi has quietly become part of how I travel. The car is always there before I am, and I have never once had to think about it.</blockquote>
+          <figcaption>— Yasmine B., private banking client, Casablanca</figcaption>
+        </figure>
+        <figure class="quote reveal">
+          <blockquote>From the airport to a board meeting in Marrakech, everything was handled with a discretion I rarely see. This is what luxury should feel like — invisible.</blockquote>
+          <figcaption>— Khalid R., executive director</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="cta" aria-label="Reserve your journey">
+      <div class="cta__inner reveal">
+        <span class="eyebrow eyebrow--gold">Begin</span>
+        <h2>Your journey deserves the same care as your destination.</h2>
+        <a href="#book" class="btn btn--gold btn--lg">Reserve Your Chauffeur</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer" id="contact">
+    <div class="footer__inner">
+      <div class="footer__brand">
+        <span class="brand__name brand__name--lg">AFSAHI</span>
+        <span class="brand__tag">Luxury Transport</span>
+        <p class="footer__blurb">Discreet, world-class chauffeur service operating in Casablanca and across the Kingdom of Morocco.</p>
+      </div>
+
+      <nav class="footer__nav" aria-label="Footer">
+        <h4>Explore</h4>
+        <a href="#services">Services</a>
+        <a href="#fleet">Fleet</a>
+        <a href="#experience">Experience</a>
+        <a href="#book">Book Now</a>
+      </nav>
+
+      <div class="footer__contact">
+        <h4>Contact</h4>
+        <p>Casablanca, Morocco</p>
+        <p><a href="tel:+212522000000">+212 5 22 00 00 00</a></p>
+        <p><a href="mailto:concierge@afsahi.example">concierge@afsahi.example</a></p>
+        <p class="footer__hours">Concierge available 24/7</p>
+      </div>
+    </div>
+
+    <div class="footer__base">
+      <span>&copy; <span id="year"></span> Afsahi Luxury Transport. All rights reserved.</span>
+      <span>Proudly operating in Morocco.</span>
+    </div>
+  </footer>
+
+  <!-- GSAP via CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="main.js" defer></script>
+</body>
+</html>

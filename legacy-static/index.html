@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AFSAHI Luxury Transport — Chauffeur Privé &amp; Transfert Aéroport au Maroc</title>
+<meta name="description" content="AFSAHI Luxury Transport — service de chauffeur privé haut de gamme et transferts aéroport au Maroc. Le luxe en mouvement, de Casablanca à Marrakech." />
+<meta property="og:title" content="AFSAHI Luxury Transport" />
+<meta property="og:description" content="Le luxe en mouvement — chauffeur privé premium au Maroc." />
+<meta property="og:type" content="website" />
+<meta property="og:image" content="public/images/hero-sedan.jpg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="no-js">
+
+<!-- CUSTOM CURSOR -->
+<div class="cursor" id="cursor" aria-hidden="true"></div>
+<div class="cursor-dot" id="cursorDot" aria-hidden="true"></div>
+
+<!-- NAVBAR -->
+<header class="nav" id="nav">
+  <a href="#hero" class="nav__brand" aria-label="AFSAHI — accueil" data-cursor>
+    <svg class="brand-mark" viewBox="0 0 48 56" fill="none" aria-hidden="true">
+      <!-- crown -->
+      <path d="M9 20 L14 11 L19 18 L24 8 L29 18 L34 11 L39 20 L36 24 L12 24 Z" fill="var(--gold)"/>
+      <circle cx="14" cy="9.5" r="1.8" fill="var(--gold)"/>
+      <circle cx="24" cy="6" r="2" fill="var(--gold)"/>
+      <circle cx="34" cy="9.5" r="1.8" fill="var(--gold)"/>
+      <!-- serif A -->
+      <path d="M24 27 L34 50 L29.5 50 L27.6 45 L20.4 45 L18.5 50 L14 50 Z M21.7 41.5 L26.3 41.5 L24 35 Z" fill="var(--text)"/>
+    </svg>
+    <span class="brand-word">
+      <b>AFSAHI</b>
+      <i data-i18n="brand_tag">Luxury Transport</i>
+    </span>
+  </a>
+
+  <nav class="nav__links" id="navLinks" aria-label="Navigation principale">
+    <a href="#hero" data-cursor data-i18n="nav_home">Accueil</a>
+    <a href="#services" data-cursor data-i18n="nav_services">Services</a>
+    <a href="#fleet" data-cursor data-i18n="nav_fleet">Notre Flotte</a>
+    <a href="#how" data-cursor data-i18n="nav_how">Comment ça marche</a>
+    <a href="#contact" data-cursor data-i18n="nav_contact">Contact</a>
+  </nav>
+
+  <div class="nav__right">
+    <button class="lang" id="lang" aria-label="Changer de langue" data-cursor>
+      <span class="lang__fr is-active">FR</span><span class="lang__sep">|</span><span class="lang__en">EN</span>
+    </button>
+    <a href="#book" class="btn btn--gold nav__cta" data-cursor data-i18n="nav_book">Réserver</a>
+    <button class="burger" id="burger" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
+  </div>
+</header>
+
+<main id="smooth-content">
+
+<!-- HERO -->
+<section class="hero" id="hero">
+  <div class="hero__media">
+    <img src="public/images/hero-sedan.jpg" alt="Mercedes S-Class noire de nuit sur un boulevard de Casablanca" id="heroImg" />
+  </div>
+  <canvas class="hero__canvas" id="heroCanvas" aria-hidden="true"></canvas>
+  <div class="hero__overlay"></div>
+
+  <div class="hero__inner">
+    <div class="hero__copy">
+      <span class="eyebrow reveal" data-i18n="hero_eyebrow">Casablanca · Rabat · Marrakech · Tanger</span>
+      <h1 class="hero__title">
+        <span class="split" data-split data-i18n="hero_title">Le luxe en mouvement.</span>
+      </h1>
+      <p class="hero__sub reveal" data-i18n="hero_sub">Luxury in motion — a discreet chauffeur service across Morocco.</p>
+      <p class="hero__lead reveal" data-i18n="hero_lead">Des transferts aéroport aux trajets sur mesure, AFSAHI conjugue élégance, ponctualité et discrétion absolue.</p>
+    </div>
+
+    <!-- BOOKING WIDGET -->
+    <form class="book" id="book" aria-label="Widget de réservation">
+      <div class="book__tabs" id="bookTabs">
+        <span class="book__pill" id="bookPill"></span>
+        <button type="button" class="is-active" data-tab data-i18n="book_transfer">Transfert</button>
+        <button type="button" data-tab data-i18n="book_hourly">À l'heure</button>
+      </div>
+
+      <div class="book__field">
+        <label data-i18n="book_from">Départ</label>
+        <input type="text" placeholder="Aéroport Mohammed V, Casablanca" data-ph-fr="Aéroport Mohammed V, Casablanca" data-ph-en="Mohammed V Airport, Casablanca" required />
+      </div>
+      <div class="book__field" data-dest>
+        <label data-i18n="book_to">Destination</label>
+        <input type="text" placeholder="Four Seasons, Anfa" data-ph-fr="Four Seasons, Anfa" data-ph-en="Four Seasons, Anfa" />
+      </div>
+      <div class="book__row">
+        <div class="book__field"><label data-i18n="book_date">Date</label><input type="date" required /></div>
+        <div class="book__field"><label data-i18n="book_time">Heure</label><input type="time" required /></div>
+      </div>
+      <div class="book__field book__field--stepper">
+        <label data-i18n="book_pax">Passagers</label>
+        <div class="stepper" role="group" aria-label="Passagers">
+          <button type="button" class="stepper__btn" data-step="-1" aria-label="Moins" data-cursor>&minus;</button>
+          <span class="stepper__val" id="paxVal">1</span>
+          <button type="button" class="stepper__btn" data-step="1" aria-label="Plus" data-cursor>+</button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn--gold btn--block shimmer" data-cursor data-i18n="book_cta">Voir les prix</button>
+      <p class="book__note" id="bookNote" role="status" aria-live="polite"></p>
+
+      <div class="trust">
+        <span class="trust__stars" aria-hidden="true">★★★★★</span>
+        <span class="trust__txt"><b data-i18n="trust_word">Excellent</b> · <span data-i18n="trust_sub">1 200+ trajets notés</span></span>
+      </div>
+    </form>
+  </div>
+  <a href="#services" class="hero__cue" aria-label="Défiler"><span data-i18n="scroll">Défiler</span><i></i></a>
+</section>
+
+<!-- SERVICES -->
+<section class="section services" id="services">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow center reveal" data-i18n="svc_eyebrow">Nos Services</span>
+      <h2 class="reveal" data-i18n="svc_title">Deux façons de voyager, une seule exigence</h2>
+    </div>
+    <div class="services__grid">
+      <article class="scard magnetic reveal" data-cursor>
+        <div class="scard__media"><img src="public/images/meet-greet.jpg" alt="Chauffeur en costume sombre attendant à l'aéroport" /></div>
+        <div class="scard__body">
+          <span class="eyebrow" data-i18n="svc1_kicker">Transferts Aéroport</span>
+          <h3 data-i18n="svc1_title">Accueilli, jamais simplement récupéré</h3>
+          <p data-i18n="svc1_text">Votre chauffeur suit votre vol en temps réel et vous attend en zone d'arrivée. Bagages pris en charge, habitacle tempéré — vous n'avez qu'à monter.</p>
+          <a href="#book" class="link" data-cursor data-i18n="svc1_link">Réserver un transfert</a>
+        </div>
+      </article>
+      <article class="scard magnetic reveal" data-cursor>
+        <div class="scard__media"><img src="public/images/morocco-road.jpg" alt="Voiture de luxe noire glissant en ville au crépuscule" /></div>
+        <div class="scard__body">
+          <span class="eyebrow" data-i18n="svc2_kicker">Trajets en Ville</span>
+          <h3 data-i18n="svc2_title">Votre journée, à votre rythme</h3>
+          <p data-i18n="svc2_text">Réunions, dîners, événements. Gardez le même véhicule et le même chauffeur à votre entière disposition, à l'heure ou à la demande.</p>
+          <a href="#book" class="link" data-cursor data-i18n="svc2_link">Réserver à l'heure</a>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- WHY / STATS -->
+<section class="section why">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow center reveal" data-i18n="why_eyebrow">Pourquoi AFSAHI</span>
+      <h2 class="reveal" data-i18n="why_title">Le standard du voyage privé au Maroc</h2>
+      <p class="reveal muted" data-i18n="why_text">Une flotte récente, des chauffeurs formés et un sens du détail qui transforme chaque trajet en expérience.</p>
+    </div>
+    <div class="stats">
+      <div class="stat reveal"><div class="stat__n" data-count="120" data-suffix="+">0</div><div class="stat__t" data-i18n="stat1">Chauffeurs professionnels</div></div>
+      <div class="stat reveal"><div class="stat__n" data-count="60" data-suffix="+">0</div><div class="stat__t" data-i18n="stat2">Véhicules premium</div></div>
+      <div class="stat reveal"><div class="stat__n" data-count="14" data-suffix="">0</div><div class="stat__t" data-i18n="stat3">Villes desservies</div></div>
+      <div class="stat reveal"><div class="stat__n" data-count="24" data-suffix="/7">0</div><div class="stat__t" data-i18n="stat4">Service &amp; conciergerie</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section how" id="how">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow center reveal" data-i18n="how_eyebrow">Comment ça marche</span>
+      <h2 class="reveal" data-i18n="how_title">Trois étapes vers la sérénité</h2>
+    </div>
+    <div class="how__grid">
+      <div class="step reveal">
+        <div class="step__circle">1</div>
+        <h3 data-i18n="how1_t">Réservez votre trajet</h3>
+        <p data-i18n="how1_p">Indiquez départ, destination et horaire. Le tarif est fixe et confirmé à l'avance.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step__circle">2</div>
+        <h3 data-i18n="how2_t">Recevez votre chauffeur</h3>
+        <p data-i18n="how2_p">Un professionnel vérifié arrive en avance, suit votre vol et vous accueille par votre nom.</p>
+      </div>
+      <div class="step reveal">
+        <div class="step__circle">3</div>
+        <h3 data-i18n="how3_t">Voyagez en toute sérénité</h3>
+        <p data-i18n="how3_p">Installez-vous dans un cuir feutré et laissez la route venir à vous.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FLEET SLIDER -->
+<section class="section fleet" id="fleet">
+  <div class="wrap">
+    <div class="head head--row">
+      <div>
+        <span class="eyebrow reveal" data-i18n="fleet_eyebrow">Notre Flotte</span>
+        <h2 class="reveal" data-i18n="fleet_title">Choisies pour leur présence</h2>
+      </div>
+      <div class="fleet__nav">
+        <button class="fleet__arrow" id="fleetPrev" aria-label="Précédent" data-cursor>&larr;</button>
+        <button class="fleet__arrow" id="fleetNext" aria-label="Suivant" data-cursor>&rarr;</button>
+      </div>
+    </div>
+  </div>
+  <div class="fleet__viewport" id="fleetViewport">
+    <div class="fleet__track" id="fleetTrack">
+      <article class="vcard">
+        <div class="vcard__pic"><img src="public/images/hero-sedan.jpg" alt="Mercedes E-Class noire" /></div>
+        <div class="vcard__body">
+          <span class="eyebrow" data-i18n="v1_class">Berline</span>
+          <h3>Mercedes E-Class</h3>
+          <div class="vcard__meta"><span>👤 3</span><span>🧳 3</span></div>
+        </div>
+      </article>
+      <article class="vcard">
+        <div class="vcard__pic"><img src="public/images/chauffeur-door.jpg" alt="Mercedes S-Class avec chauffeur" /></div>
+        <div class="vcard__body">
+          <span class="eyebrow" data-i18n="v2_class">Première Classe</span>
+          <h3>Mercedes S-Class</h3>
+          <div class="vcard__meta"><span>👤 3</span><span>🧳 2</span></div>
+        </div>
+      </article>
+      <article class="vcard">
+        <div class="vcard__pic"><img src="public/images/morocco-road.jpg" alt="SUV de luxe noir" /></div>
+        <div class="vcard__body">
+          <span class="eyebrow" data-i18n="v3_class">SUV</span>
+          <h3>Mercedes GLS / Escalade</h3>
+          <div class="vcard__meta"><span>👤 5</span><span>🧳 5</span></div>
+        </div>
+      </article>
+      <article class="vcard">
+        <div class="vcard__pic"><img src="public/images/van-interior.jpg" alt="Van Mercedes V-Class intérieur premium" /></div>
+        <div class="vcard__body">
+          <span class="eyebrow" data-i18n="v4_class">Van</span>
+          <h3>Mercedes V-Class</h3>
+          <div class="vcard__meta"><span>👤 7</span><span>🧳 7</span></div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- EXPERIENCE PARALLAX -->
+<section class="exp" id="experience">
+  <div class="exp__media"><img src="public/images/van-interior.jpg" alt="Sièges arrière en cuir noir avec éclairage d'ambiance doré" id="expImg" /></div>
+  <div class="exp__overlay"></div>
+  <div class="exp__quote">
+    <span class="exp__mark">“</span>
+    <p class="reveal" data-i18n="exp_quote">Chaque trajet, une expérience signature.</p>
+    <span class="exp__by reveal" data-i18n="exp_by">— L'art de voyager, selon AFSAHI</span>
+  </div>
+</section>
+
+<!-- REVIEWS -->
+<section class="section reviews">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow center reveal" data-i18n="rev_eyebrow">Témoignages</span>
+      <h2 class="reveal" data-i18n="rev_title">Ils voyagent avec confiance</h2>
+    </div>
+    <div class="reviews__grid">
+      <figure class="review reveal">
+        <div class="review__stars">★★★★★</div>
+        <blockquote data-i18n="rev1">« Ponctuels, discrets, impeccables. La seule voiture en qui j'ai confiance avant un vol important. »</blockquote>
+        <figcaption>Leïla M. · <span data-i18n="city_casa">Casablanca</span></figcaption>
+      </figure>
+      <figure class="review reveal">
+        <div class="review__stars">★★★★★</div>
+        <blockquote data-i18n="rev2">« Un service à la hauteur des plus grandes capitales. Le chauffeur connaissait déjà mon itinéraire. »</blockquote>
+        <figcaption>Karim B. · <span data-i18n="city_rabat">Rabat</span></figcaption>
+      </figure>
+      <figure class="review reveal">
+        <div class="review__stars">★★★★★</div>
+        <blockquote data-i18n="rev3">« De l'aéroport à l'hôtel sans un mot de trop. Exactement ce que le luxe devrait être. »</blockquote>
+        <figcaption>Sofia E. · <span data-i18n="city_mrk">Marrakech</span></figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- DESTINATIONS -->
+<section class="section dest" id="destinations">
+  <div class="wrap">
+    <div class="head">
+      <span class="eyebrow center reveal" data-i18n="dest_eyebrow">Destinations</span>
+      <h2 class="reveal" data-i18n="dest_title">Tout le Maroc, entre deux portes</h2>
+    </div>
+    <div class="dest__grid">
+      <a href="#book" class="tile reveal" data-cursor><img src="public/images/hero-sedan.jpg" alt="Casablanca" /><span class="tile__ov"></span><span class="tile__txt"><b>Casablanca</b><i>CMN · Mohammed V</i></span></a>
+      <a href="#book" class="tile reveal" data-cursor><img src="public/images/morocco-road.jpg" alt="Marrakech" /><span class="tile__ov"></span><span class="tile__txt"><b>Marrakech</b><i>RAK · Ménara</i></span></a>
+      <a href="#book" class="tile reveal" data-cursor><img src="public/images/chauffeur-door.jpg" alt="Tanger" /><span class="tile__ov"></span><span class="tile__txt"><b>Tanger</b><i>TNG · Ibn Battouta</i></span></a>
+      <a href="#book" class="tile reveal" data-cursor><img src="public/images/meet-greet.jpg" alt="Rabat" /><span class="tile__ov"></span><span class="tile__txt"><b>Rabat</b><i>RBA · Salé</i></span></a>
+      <a href="#book" class="tile reveal" data-cursor><img src="public/images/van-interior.jpg" alt="Agadir" /><span class="tile__ov"></span><span class="tile__txt"><b>Agadir</b><i>AGA · Al Massira</i></span></a>
+    </div>
+  </div>
+</section>
+
+<!-- NEWSLETTER -->
+<section class="section news" id="contact">
+  <div class="wrap news__inner">
+    <div>
+      <h2 class="reveal" data-i18n="news_title">Réservez votre premier trajet</h2>
+      <p class="reveal muted" data-i18n="news_text">Recevez nos itinéraires signature et offres privées. Discrétion garantie.</p>
+    </div>
+    <form class="news__form reveal" id="newsForm">
+      <input type="email" placeholder="votre@email.com" data-ph-fr="votre@email.com" data-ph-en="your@email.com" aria-label="Email" required />
+      <button type="submit" class="btn btn--gold shimmer" data-cursor data-i18n="news_cta">S'abonner</button>
+    </form>
+    <p class="news__note" id="newsNote" role="status" aria-live="polite"></p>
+  </div>
+</section>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="wrap footer__grid">
+    <div class="footer__brand">
+      <span class="brand-word brand-word--lg">
+        <b>AFSAHI</b><i data-i18n="brand_tag">Luxury Transport</i>
+      </span>
+      <p class="muted" data-i18n="foot_blurb">Service de chauffeur privé haut de gamme. Le luxe en mouvement, à travers tout le Maroc.</p>
+    </div>
+    <div class="footer__col">
+      <h4 data-i18n="foot_services">Services</h4>
+      <a href="#services" data-cursor data-i18n="foot_airport">Transferts Aéroport</a>
+      <a href="#services" data-cursor data-i18n="foot_city">Trajets en Ville</a>
+      <a href="#fleet" data-cursor data-i18n="nav_fleet">Notre Flotte</a>
+    </div>
+    <div class="footer__col">
+      <h4 data-i18n="foot_cities">Villes</h4>
+      <a href="#destinations" data-cursor>Casablanca</a>
+      <a href="#destinations" data-cursor>Marrakech</a>
+      <a href="#destinations" data-cursor>Tanger · Rabat · Agadir</a>
+    </div>
+    <div class="footer__col">
+      <h4 data-i18n="foot_contact">Contact</h4>
+      <a href="tel:+212522000000" data-cursor>+212 5 22 00 00 00</a>
+      <a href="https://wa.me/212600000000" data-cursor>WhatsApp</a>
+      <a href="mailto:concierge@afsahi.ma" data-cursor>concierge@afsahi.ma</a>
+    </div>
+  </div>
+  <div class="wrap footer__bottom">
+    <span>© <span id="yr"></span> AFSAHI Luxury Transport. <span data-i18n="foot_rights">Tous droits réservés.</span></span>
+    <span>Casablanca · Maroc</span>
+  </div>
+</footer>
+
+<!-- LIBS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
