@@ -5,6 +5,7 @@
 import { motion } from "framer-motion";
 import { calculatePrice, convertToEuro } from "../../data/bookingPricing.js";
 import { buildWhatsAppUrl, buildBookingMessage } from "../../lib/whatsapp.js";
+import { addReservation } from "../../lib/reservations.js";
 
 function Row({ label, value, strong }) {
   return (
@@ -45,25 +46,44 @@ export default function BookingSummary({
     : routeStatus === "error" ? "Unable to calculate distance."
     : "Calculating…";
 
-  const buildWhatsApp = () =>
-    buildWhatsAppUrl(
-      buildBookingMessage({
-        pickup: pickupLabel,
-        dropoff: dropoffLabel,
-        vehicle: vehicle?.name,
-        distanceKm,
-        priceMad,
-        priceEur,
-        date,
-        time,
-        passengers: vehicle?.passengers,
-        luggage: vehicle?.luggage,
-      })
-    );
-
   const reserve = () => {
     if (!ready) return;
-    window.open(buildWhatsApp(), "_blank", "noopener,noreferrer");
+    const message = buildBookingMessage({
+      pickup: pickupLabel,
+      dropoff: dropoffLabel,
+      vehicle: vehicle?.name,
+      distanceKm,
+      priceMad,
+      priceEur,
+      date,
+      time,
+      passengers: vehicle?.passengers,
+      luggage: vehicle?.luggage,
+    });
+
+    // 1. Save the reservation locally FIRST (demo storage — see lib/reservations.js;
+    //    swap for Supabase/Firebase for a real online dashboard).
+    try {
+      addReservation({
+        pickup: pickupLabel,
+        dropoff: dropoffLabel,
+        date,
+        time,
+        vehicle: vehicle?.name,
+        passengers: vehicle?.passengers,
+        luggage: vehicle?.luggage,
+        distanceKm,
+        durationText,
+        priceMad,
+        priceEur,
+        message,
+      });
+    } catch {
+      // Storage failure must never block the client's WhatsApp booking.
+    }
+
+    // 2. Then open WhatsApp with the complete booking message.
+    window.open(buildWhatsAppUrl(message), "_blank", "noopener,noreferrer");
   };
 
   return (

@@ -23,9 +23,12 @@ import Chauffeurs from "./components/Chauffeurs.jsx";
 import FinalCTA from "./components/FinalCTA.jsx";
 import Footer from "./components/Footer.jsx";
 
-// Blacklane-style maps booking system — lazy-loaded so the Google Maps bundle
-// never blocks the homepage's first paint.
+// Blacklane-style booking system — lazy-loaded so the map bundle never blocks
+// the homepage's first paint.
 const BookingSystem = lazy(() => import("./pages/BookingSystem.jsx"));
+
+// Owner dashboard at /admin — lazy so visitors never download admin code.
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard.jsx"));
 
 function Homepage({ onSeePrices }) {
   useLenis();
@@ -71,6 +74,16 @@ function Homepage({ onSeePrices }) {
 
 export default function App() {
   const [showBooking, setShowBooking] = useState(false);
+
+  // Owner dashboard — path-based (no router lib). Vercel rewrites every path to
+  // index.html (see vercel.json), so /admin also works in production.
+  if (window.location.pathname.startsWith("/admin")) {
+    return (
+      <Suspense fallback={<div className="grid min-h-screen place-items-center bg-noir text-cream/60">Loading…</div>}>
+        <AdminDashboard />
+      </Suspense>
+    );
+  }
 
   return (
     <LanguageProvider>
