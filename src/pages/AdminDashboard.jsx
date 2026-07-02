@@ -2,13 +2,13 @@
 // AdminDashboard — /admin — owner login + premium analytics dashboard.
 // Layout: dark sidebar (nav) · top header (profile) · Overview / Reservations.
 //
+// Data: Supabase (hosted Postgres) — reservations from ALL client devices.
+//
 // ⚠️ SECURITY (read before shipping to a real client):
-// Frontend-only login — VITE_* credentials are bundled into the public JS and
-// the data lives in THIS browser's localStorage (clients' own bookings from
-// their phones will NOT appear here). Fine as a demo/owner preview; for
-// production connect Supabase (recommended) or Firebase: hosted Postgres,
-// real auth, row-level security. The UI is storage-agnostic — only
-// src/lib/reservations.js needs replacing.
+// The login is still frontend-only (VITE_* credentials are bundled into the
+// public JS), and the table's RLS policies allow the public anon key to
+// read/write. Good enough for launch; for a hardened dashboard, add Supabase
+// Auth and restrict select/update/delete to authenticated admins.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
@@ -99,18 +99,35 @@ function Shell({ onLogout }) {
   const [section, setSection] = useState("overview");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
 
-  const refresh = useCallback(() => setItems(getReservations()), []);
+  // Async fetch from Supabase (skeletons show while loading).
+  const refresh = useCallback(async () => {
+    try {
+      setFetchError(null);
+      setItems(await getReservations());
+    } catch (err) {
+      console.error("[AFSAHI] Failed to load reservations:", err);
+      setFetchError(
+        err?.message?.includes("Could not find the table")
+          ? "The 'reservations' table doesn't exist yet — run the setup SQL from src/lib/reservations.js in Supabase → SQL Editor."
+          : "Couldn't load reservations from Supabase. Check your connection and try again."
+      );
+    }
+  }, []);
 
   useEffect(() => {
-    // Brief skeleton pass so data loads feel intentional (localStorage is sync).
-    const t = setTimeout(() => { refresh(); setLoading(false); }, 450);
-    return () => clearTimeout(t);
+    (async () => { await refresh(); setLoading(false); })();
   }, [refresh]);
 
-  const setStatus = (id, status) => { updateReservationStatus(id, status); refresh(); };
-  const remove = (id) => {
-    if (window.confirm("Delete this reservation permanently?")) { deleteReservation(id); refresh(); }
+  const setStatus = async (id, status) => {
+    try { await updateReservationStatus(id, status); await refresh(); }
+    catch (err) { console.error(err); window.alert("Update failed — check your connection."); }
+  };
+  const remove = async (id) => {
+    if (!window.confirm("Delete this reservation permanently?")) return;
+    try { await deleteReservation(id); await refresh(); }
+    catch (err) { console.error(err); window.alert("Delete failed — check your connection."); }
   };
 
   return (
@@ -139,10 +156,10 @@ function Shell({ onLogout }) {
         <div className="mt-auto space-y-3">
           <div className="rounded-xl border border-champ/25 bg-champ/10 p-3">
             <p className="flex items-center gap-1.5 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-champ-lt">
-              <Crown size={11} /> Demo storage
+              <Crown size={11} /> Supabase live
             </p>
             <p className="mt-1 text-[0.62rem] leading-relaxed text-cream/45">
-              Local browser data. Connect Supabase / Firebase for live cross-device reservations.
+              Reservations sync from all client devices via Supabase.
             </p>
           </div>
           <button onClick={onLogout}
@@ -192,6 +209,15 @@ function Shell({ onLogout }) {
         </header>
 
         <main className="p-5 lg:p-7">
+          {fetchError && (
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3">
+              <p className="text-[0.8rem] text-red-700">{fetchError}</p>
+              <button onClick={() => { setLoading(true); refresh().finally(() => setLoading(false)); }}
+                className="rounded-full border border-red-500/40 px-4 py-1.5 text-[0.72rem] font-semibold text-red-700 transition-colors hover:bg-red-500/15">
+                Retry
+              </button>
+            </div>
+          )}
           {loading ? (
             <Skeletons />
           ) : section === "overview" ? (

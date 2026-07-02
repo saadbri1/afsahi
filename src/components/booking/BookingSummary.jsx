@@ -61,28 +61,25 @@ export default function BookingSummary({
       luggage: vehicle?.luggage,
     });
 
-    // 1. Save the reservation locally FIRST (demo storage — see lib/reservations.js;
-    //    swap for Supabase/Firebase for a real online dashboard).
-    try {
-      addReservation({
-        pickup: pickupLabel,
-        dropoff: dropoffLabel,
-        date,
-        time,
-        vehicle: vehicle?.name,
-        passengers: vehicle?.passengers,
-        luggage: vehicle?.luggage,
-        distanceKm,
-        durationText,
-        priceMad,
-        priceEur,
-        message,
-      });
-    } catch {
-      // Storage failure must never block the client's WhatsApp booking.
-    }
+    // 1. Save the reservation to Supabase (fire-and-forget: a network/storage
+    //    failure must never block the client's WhatsApp booking, and awaiting
+    //    here could trip popup blockers on the window.open below).
+    addReservation({
+      pickup: pickupLabel,
+      dropoff: dropoffLabel,
+      date,
+      time,
+      vehicle: vehicle?.name,
+      passengers: vehicle?.passengers,
+      luggage: vehicle?.luggage,
+      distanceKm,
+      durationText,
+      priceMad,
+      priceEur,
+      message,
+    }).catch((err) => console.error("[AFSAHI] Failed to save reservation:", err));
 
-    // 2. Then open WhatsApp with the complete booking message.
+    // 2. Open WhatsApp with the complete booking message.
     window.open(buildWhatsAppUrl(message), "_blank", "noopener,noreferrer");
   };
 

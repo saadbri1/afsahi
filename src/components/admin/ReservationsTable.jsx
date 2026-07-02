@@ -1,6 +1,5 @@
 /* Admin · Reservations — filterable professional table with row actions.
-   Data comes from the localStorage demo store (this browser only) — swap
-   src/lib/reservations.js for Supabase/Firebase for real cross-device data. */
+   Data comes from Supabase (src/lib/reservations.js) — live, cross-device. */
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -63,7 +62,7 @@ export default function ReservationsTable({ items, onStatus, onDelete }) {
             <FilterX size={13} /> Clear
           </button>
         )}
-        <button onClick={downloadCSV}
+        <button onClick={() => downloadCSV(items)}
           className="ml-auto inline-flex items-center gap-2 rounded-xl bg-champ px-4 py-2.5 text-[0.76rem] font-semibold text-white transition-colors hover:bg-champ-dk">
           <Download size={14} /> Export CSV
         </button>

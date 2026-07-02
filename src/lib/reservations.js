@@ -1,63 +1,119 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Reservations store — DEMO / LOCAL VERSION ONLY.
+// Reservations store — SUPABASE (hosted Postgres, cross-device).
 //
-// ⚠️ This uses the browser's localStorage, which means:
-//   • Reservations are saved on THIS device/browser only.
-//   • The admin sees reservations made in the same browser — clients' bookings
-//     from their own phones do NOT appear here.
-//   • Clearing browser data erases everything.
+// Every client booking is INSERTed here, and the /admin dashboard reads,
+// updates and deletes through this module. All functions are async.
 //
-// FOR A REAL CLIENT DASHBOARD: replace this module with a hosted database +
-// auth — Supabase (recommended: free tier, Postgres, row-level security,
-// built-in email/password auth) or Firebase. The function signatures below are
-// deliberately backend-shaped (get/add/update/remove) so swapping the storage
-// layer later requires no changes to the dashboard UI.
+// ── ONE-TIME SETUP ───────────────────────────────────────────────────────────
+// Run this once in Supabase → SQL Editor (dashboard):
+//
+//   create table if not exists public.reservations (
+//     id            uuid primary key default gen_random_uuid(),
+//     created_at    timestamptz not null default now(),
+//     status        text not null default 'New',
+//     pickup        text,
+//     dropoff       text,
+//     date          text,
+//     time          text,
+//     vehicle       text,
+//     passengers    int,
+//     luggage       int,
+//     distance_km   numeric,
+//     duration_text text,
+//     price_mad     numeric,
+//     price_eur     numeric,
+//     message       text
+//   );
+//   alter table public.reservations enable row level security;
+//   create policy "anon insert" on public.reservations for insert to anon with check (true);
+//   create policy "anon select" on public.reservations for select to anon using (true);
+//   create policy "anon update" on public.reservations for update to anon using (true) with check (true);
+//   create policy "anon delete" on public.reservations for delete to anon using (true);
+//
+// ⚠️ These policies allow anyone with the (public) anon key to read/modify the
+// table — acceptable for launch, but for a hardened dashboard add Supabase
+// Auth and restrict select/update/delete to authenticated admins.
 // ─────────────────────────────────────────────────────────────────────────────
+import { supabase } from "./supabase.js";
 
-const KEY = "afsahi_reservations";
+const TABLE = "reservations";
 
 export const STATUS = { NEW: "New", CONFIRMED: "Confirmed", CANCELLED: "Cancelled" };
 
-function read() {
-  try {
-    return JSON.parse(localStorage.getItem(KEY)) || [];
-  } catch {
-    return [];
-  }
-}
-
-function write(list) {
-  localStorage.setItem(KEY, JSON.stringify(list));
-  return list;
-}
-
-export function getReservations() {
-  // newest first
-  return read().sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
-}
-
-// Called by the booking flow just BEFORE WhatsApp opens.
-export function addReservation(data) {
-  const item = {
-    id: `res_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-    status: STATUS.NEW,
-    createdAt: new Date().toISOString(),
-    ...data,
+// DB rows are snake_case; the UI/analytics use camelCase. Map here so the rest
+// of the app never changes when the storage layer does.
+function fromRow(r) {
+  return {
+    id: r.id,
+    createdAt: r.created_at,
+    status: r.status,
+    pickup: r.pickup,
+    dropoff: r.dropoff,
+    date: r.date,
+    time: r.time,
+    vehicle: r.vehicle,
+    passengers: r.passengers,
+    luggage: r.luggage,
+    distanceKm: r.distance_km,
+    durationText: r.duration_text,
+    priceMad: r.price_mad,
+    priceEur: r.price_eur,
+    message: r.message,
   };
-  write([...read(), item]);
-  return item;
 }
 
-export function updateReservationStatus(id, status) {
-  return write(read().map((r) => (r.id === id ? { ...r, status } : r)));
+function toRow(d) {
+  return {
+    status: d.status ?? STATUS.NEW,
+    pickup: d.pickup ?? null,
+    dropoff: d.dropoff ?? null,
+    date: d.date ?? null,
+    time: d.time ?? null,
+    vehicle: d.vehicle ?? null,
+    passengers: d.passengers ?? null,
+    luggage: d.luggage ?? null,
+    distance_km: d.distanceKm ?? null,
+    duration_text: d.durationText ?? null,
+    price_mad: d.priceMad ?? null,
+    price_eur: d.priceEur ?? null,
+    message: d.message ?? null,
+  };
 }
 
-export function deleteReservation(id) {
-  return write(read().filter((r) => r.id !== id));
+// Newest first. Throws on network/table errors — callers show an error state.
+export async function getReservations() {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data || []).map(fromRow);
 }
 
-// CSV export of every stored reservation.
-export function reservationsToCSV(list = getReservations()) {
+// Called by the booking flow when the client taps Reserve (fire-and-forget
+// there, so a storage hiccup can never block the WhatsApp booking).
+export async function addReservation(data) {
+  const { data: rows, error } = await supabase
+    .from(TABLE)
+    .insert(toRow(data))
+    .select()
+    .single();
+  if (error) throw error;
+  return fromRow(rows);
+}
+
+export async function updateReservationStatus(id, status) {
+  const { error } = await supabase.from(TABLE).update({ status }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteReservation(id) {
+  const { error } = await supabase.from(TABLE).delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ── CSV export (from Supabase data) ─────────────────────────────────────────
+export function reservationsToCSV(list) {
   const cols = [
     ["Created", (r) => r.createdAt],
     ["Status", (r) => r.status],
@@ -80,8 +136,9 @@ export function reservationsToCSV(list = getReservations()) {
   return [head, ...rows].join("\n");
 }
 
-export function downloadCSV() {
-  const blob = new Blob(["﻿" + reservationsToCSV()], { type: "text/csv;charset=utf-8;" });
+export async function downloadCSV(list) {
+  const data = list || (await getReservations());
+  const blob = new Blob(["﻿" + reservationsToCSV(data)], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
