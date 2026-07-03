@@ -47,6 +47,9 @@ function fromRow(r) {
     id: r.id,
     createdAt: r.created_at,
     status: r.status,
+    clientName: r.client_name,
+    clientPhone: r.client_phone,
+    clientEmail: r.client_email,
     pickup: r.pickup,
     dropoff: r.dropoff,
     date: r.date,
@@ -65,6 +68,9 @@ function fromRow(r) {
 function toRow(d) {
   return {
     status: d.status ?? STATUS.NEW,
+    client_name: d.clientName ?? null,
+    client_phone: d.clientPhone ?? null,
+    client_email: d.clientEmail ?? null,
     pickup: d.pickup ?? null,
     dropoff: d.dropoff ?? null,
     date: d.date ?? null,
@@ -90,14 +96,23 @@ export async function getReservations() {
   return (data || []).map(fromRow);
 }
 
-// Called by the booking flow when the client taps Reserve (fire-and-forget
-// there, so a storage hiccup can never block the WhatsApp booking).
+// Called by the booking flow when the client confirms the reservation.
+// If the client_* columns haven't been added yet (migration below not run),
+// retry once without them so no booking is ever lost — the client details
+// still arrive inside `message`.
+//
+//   -- Run once in Supabase → SQL Editor to add the client columns:
+//   alter table public.reservations
+//     add column if not exists client_name  text,
+//     add column if not exists client_phone text,
+//     add column if not exists client_email text;
 export async function addReservation(data) {
-  const { data: rows, error } = await supabase
-    .from(TABLE)
-    .insert(toRow(data))
-    .select()
-    .single();
+  const row = toRow(data);
+  let { data: rows, error } = await supabase.from(TABLE).insert(row).select().single();
+  if (error && /client_/.test(error.message || "")) {
+    const { client_name, client_phone, client_email, ...legacy } = row;
+    ({ data: rows, error } = await supabase.from(TABLE).insert(legacy).select().single());
+  }
   if (error) throw error;
   return fromRow(rows);
 }
@@ -117,6 +132,9 @@ export function reservationsToCSV(list) {
   const cols = [
     ["Created", (r) => r.createdAt],
     ["Status", (r) => r.status],
+    ["Client name", (r) => r.clientName],
+    ["Client phone", (r) => r.clientPhone],
+    ["Client email", (r) => r.clientEmail],
     ["Pickup", (r) => r.pickup],
     ["Drop-off", (r) => r.dropoff],
     ["Date", (r) => r.date],

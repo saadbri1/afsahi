@@ -5,17 +5,19 @@
 // options page, which reads the very same state.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState } from "react";
-import { Calendar, Clock } from "lucide-react";
+import { Calendar, Clock, Loader2 } from "lucide-react";
 import { useLang } from "../context/LanguageContext.jsx";
 import { useBooking } from "../context/BookingContext.jsx";
 import LocationAutocomplete from "./booking/LocationAutocomplete.jsx";
 import { buildWhatsAppUrl, SIMPLE_WHATSAPP_MESSAGE } from "../lib/whatsapp.js";
+import { geocodeText } from "../lib/maps.js";
 
 export default function BookingWidget({ onSeePrices }) {
   const { t } = useLang();
   const b = t.book;
   const [tab, setTab] = useState(0); // 0 one-way, 1 hourly (visual toggle)
   const [error, setError] = useState("");
+  const [checking, setChecking] = useState(false);
 
   const {
     pickup, setPickup, dropoff, setDropoff,
@@ -23,16 +25,38 @@ export default function BookingWidget({ onSeePrices }) {
     date, setDate, time, setTime,
   } = useBooking();
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    // Validate on TEXT, not the place object — manual typing is allowed. The
-    // route is geocoded from text (or uses the selected place) on the options page.
+    if (checking) return;
+    // Manual typing is allowed (no forced autocomplete selection) — but before
+    // navigating we geocode any un-selected text so the options page always
+    // starts with routable coordinates.
     if (!pickupText.trim() || !dropoffText.trim() || !date || !time) {
       setError("Please enter pickup, drop-off, date and time to view options.");
       return;
     }
     setError("");
-    onSeePrices?.();
+    setChecking(true);
+    try {
+      let p = pickup, d = dropoff;
+      if (!p?.lat) {
+        const loc = await geocodeText(pickupText);
+        if (loc) { p = { description: pickupText.trim(), lat: loc.lat, lng: loc.lng, placeId: `geo-${loc.lat}` }; setPickup(p); }
+      }
+      if (!d?.lat) {
+        const loc = await geocodeText(dropoffText);
+        if (loc) { d = { description: dropoffText.trim(), lat: loc.lat, lng: loc.lng, placeId: `geo-${loc.lng}` }; setDropoff(d); }
+      }
+      if (!p?.lat || !d?.lat) {
+        setError("Please choose a valid pickup and drop-off location.");
+        return;
+      }
+      onSeePrices?.();
+    } catch {
+      setError("Please choose a valid pickup and drop-off location.");
+    } finally {
+      setChecking(false);
+    }
   };
 
   const waHref = buildWhatsAppUrl(SIMPLE_WHATSAPP_MESSAGE);
@@ -64,9 +88,10 @@ export default function BookingWidget({ onSeePrices }) {
         />
         <Field icon={<Calendar size={15} />} label={b.date} type="date" value={date} onChange={setDate} />
         <Field icon={<Clock size={15} />} label={b.time} type="time" value={time} onChange={setTime} />
-        <button type="submit" data-cursor
-          className="shimmer relative flex items-center justify-center rounded-xl bg-champ px-6 py-3 text-[0.78rem] font-semibold text-white transition-all duration-500 ease-luxe hover:bg-champ-dk md:min-w-[8.5rem]">
-          {b.cta}
+        <button type="submit" data-cursor disabled={checking}
+          className="shimmer relative flex items-center justify-center gap-2 rounded-xl bg-champ px-6 py-3 text-[0.78rem] font-semibold text-white transition-all duration-500 ease-luxe hover:bg-champ-dk disabled:opacity-70 md:min-w-[8.5rem]">
+          {checking && <Loader2 size={14} className="animate-spin" />}
+          {checking ? "Checking…" : b.cta}
         </button>
       </div>
 

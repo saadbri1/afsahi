@@ -1,28 +1,30 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// BookingSummary — recap of the trip + "Reserve via WhatsApp" CTA.
-// The button is disabled until pickup, drop-off, date, time and a vehicle are set.
+// BookingSummary — trip recap + REQUIRED client details + confirmation modal.
+//
+// Flow: fill name/phone/email → "Reserve via WhatsApp" opens a confirmation
+// modal (full recap) → Confirm → save to Supabase + open WhatsApp + success.
+// The button stays disabled until route, price AND client details are valid.
 // ─────────────────────────────────────────────────────────────────────────────
-import { motion } from "framer-motion";
-import { calculatePrice, convertToEuro } from "../../data/bookingPricing.js";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { UserRound, Phone, Mail, CheckCircle2, X } from "lucide-react";
+import { calculatePrice, convertToEuro, formatCurrency } from "../../data/bookingPricing.js";
 import { buildWhatsAppUrl, buildBookingMessage } from "../../lib/whatsapp.js";
 import { addReservation } from "../../lib/reservations.js";
 
 function Row({ label, value, strong }) {
   return (
     <div className="flex items-baseline justify-between gap-4 py-1.5">
-      <span className="text-[0.74rem] uppercase tracking-[0.1em] text-muted">
-        {label}
-      </span>
-      <span
-        className={`min-w-0 truncate text-right text-[0.85rem] ${
-          strong ? "font-semibold text-ink" : "text-body"
-        }`}
-      >
+      <span className="text-[0.74rem] uppercase tracking-[0.1em] text-muted">{label}</span>
+      <span className={`min-w-0 truncate text-right text-[0.85rem] ${strong ? "font-semibold text-ink" : "text-body"}`}>
         {value || "—"}
       </span>
     </div>
   );
 }
+
+const validEmail = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.trim());
+const validPhone = (s) => (s.replace(/\D/g, "").length >= 8);
 
 export default function BookingSummary({
   pickupLabel,
@@ -34,11 +36,19 @@ export default function BookingSummary({
   routeStatus,
   vehicle,
 }) {
+  const [clientName, setClientName] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [modal, setModal] = useState(false);     // confirmation modal
+  const [success, setSuccess] = useState(false); // post-confirm success state
+
   const priceMad = vehicle ? calculatePrice(distanceKm, vehicle.pricePerKm) : null;
   const priceEur = convertToEuro(priceMad);
-  const ready = !!(pickupLabel && dropoffLabel && date && time && vehicle && priceMad != null);
 
-  // Premium price-card state messages (validation).
+  const tripReady = !!(pickupLabel && dropoffLabel && date && time && vehicle && priceMad != null);
+  const clientReady = clientName.trim().length >= 2 && validPhone(clientPhone) && validEmail(clientEmail);
+  const ready = tripReady && clientReady;
+
   const priceState =
     !vehicle ? "Select a vehicle first."
     : !pickupLabel ? "Choose pickup location."
@@ -46,9 +56,18 @@ export default function BookingSummary({
     : routeStatus === "error" ? "Unable to calculate distance."
     : "Calculating…";
 
-  const reserve = () => {
-    if (!ready) return;
-    const message = buildBookingMessage({
+  const helper =
+    !tripReady ? "Complete pickup, drop-off, date, time & vehicle to reserve."
+    : !clientName.trim() ? "Enter your full name to reserve."
+    : !validPhone(clientPhone) ? "Enter a valid WhatsApp / phone number."
+    : !validEmail(clientEmail) ? "Enter a valid email address."
+    : null;
+
+  const buildMessage = () =>
+    buildBookingMessage({
+      clientName: clientName.trim(),
+      clientPhone: clientPhone.trim(),
+      clientEmail: clientEmail.trim(),
       pickup: pickupLabel,
       dropoff: dropoffLabel,
       vehicle: vehicle?.name,
@@ -61,10 +80,15 @@ export default function BookingSummary({
       luggage: vehicle?.luggage,
     });
 
-    // 1. Save the reservation to Supabase (fire-and-forget: a network/storage
-    //    failure must never block the client's WhatsApp booking, and awaiting
-    //    here could trip popup blockers on the window.open below).
+  // Runs ONLY after the client presses "Confirm reservation" in the modal.
+  const confirmReservation = () => {
+    const message = buildMessage();
+    // Save to Supabase (fire-and-forget: a network hiccup must never block the
+    // WhatsApp handoff, and awaiting would risk popup blockers).
     addReservation({
+      clientName: clientName.trim(),
+      clientPhone: clientPhone.trim(),
+      clientEmail: clientEmail.trim(),
       pickup: pickupLabel,
       dropoff: dropoffLabel,
       date,
@@ -79,9 +103,11 @@ export default function BookingSummary({
       message,
     }).catch((err) => console.error("[AFSAHI] Failed to save reservation:", err));
 
-    // 2. Open WhatsApp with the complete booking message.
     window.open(buildWhatsAppUrl(message), "_blank", "noopener,noreferrer");
+    setSuccess(true);
   };
+
+  const closeModal = () => { setModal(false); setSuccess(false); };
 
   return (
     <div className="rounded-2xl border border-line bg-surface p-5 shadow-[0_2px_16px_-8px_rgba(21,18,12,0.12)]">
@@ -92,35 +118,20 @@ export default function BookingSummary({
         <Row label="Drop-off" value={dropoffLabel} />
         <Row label="Date" value={date} />
         <Row label="Time" value={time} />
-        <Row
-          label="Distance"
-          value={distanceKm != null ? `${distanceKm} km` : routeStatus === "error" ? "Unavailable" : "Calculating…"}
-        />
-        <Row
-          label="Duration"
-          value={durationText || (routeStatus === "error" ? "Unavailable" : "Calculating…")}
-        />
+        <Row label="Distance" value={distanceKm != null ? `${distanceKm} km` : routeStatus === "error" ? "Unavailable" : "Calculating…"} />
+        <Row label="Duration" value={durationText || (routeStatus === "error" ? "Unavailable" : "Calculating…")} />
       </div>
 
       {/* Premium dark price card — MAD large/bold/white, EUR smaller/gold */}
       <div className="mt-5 overflow-hidden rounded-2xl bg-noir p-5 text-center shadow-[0_18px_40px_-22px_rgba(21,18,12,0.6)]">
-        <p className="text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-cream/45">
-          Estimated price
-        </p>
+        <p className="text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-cream/45">Estimated price</p>
         {priceMad != null ? (
-          <motion.div
-            key={priceMad}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          >
+          <motion.div key={priceMad} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}>
             <p className="mt-2 text-[2.1rem] font-bold leading-none text-white">
-              {priceMad}
-              <span className="ml-1.5 text-[1.05rem] font-semibold align-baseline">MAD</span>
+              {priceMad}<span className="ml-1.5 align-baseline text-[1.05rem] font-semibold">MAD</span>
             </p>
-            <p className="mt-2 text-[0.98rem] font-medium text-champ-lt">
-              ≈ €{priceEur.toFixed(2)}
-            </p>
+            <p className="mt-2 text-[0.98rem] font-medium text-champ-lt">≈ €{priceEur.toFixed(2)}</p>
           </motion.div>
         ) : (
           <p className="mt-3 text-[0.86rem] font-medium italic text-cream/55">{priceState}</p>
@@ -128,27 +139,114 @@ export default function BookingSummary({
         <p className="mt-3 text-[0.66rem] text-cream/35">All fees included</p>
       </div>
 
+      {/* REQUIRED client details */}
+      <div className="mt-5 space-y-2.5">
+        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted">Your details</p>
+        <ClientField icon={<UserRound size={15} />} type="text" placeholder="Full name"
+          value={clientName} onChange={setClientName} autoComplete="name" />
+        <ClientField icon={<Phone size={15} />} type="tel" placeholder="Phone / WhatsApp number"
+          value={clientPhone} onChange={setClientPhone} autoComplete="tel" />
+        <ClientField icon={<Mail size={15} />} type="email" placeholder="Email address"
+          value={clientEmail} onChange={setClientEmail} autoComplete="email" />
+      </div>
+
       <motion.button
         type="button"
-        onClick={reserve}
+        onClick={() => ready && setModal(true)}
         disabled={!ready}
         whileHover={ready ? { scale: 1.02 } : {}}
         whileTap={ready ? { scale: 0.98 } : {}}
         transition={{ type: "spring", stiffness: 300, damping: 20 }}
         className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-[0.82rem] font-semibold transition-colors duration-300 ${
-          ready
-            ? "bg-[#25D366] text-white hover:bg-[#1da851]"
-            : "cursor-not-allowed bg-line text-muted"
+          ready ? "bg-[#25D366] text-white hover:bg-[#1da851]" : "cursor-not-allowed bg-line text-muted"
         }`}
       >
         <WaIcon /> Reserve via WhatsApp
       </motion.button>
-      {!ready && (
-        <p className="mt-2 text-center text-[0.72rem] text-muted">
-          Complete pickup, drop-off, date, time &amp; vehicle to reserve.
-        </p>
-      )}
+      {helper && <p className="mt-2 text-center text-[0.72rem] text-muted">{helper}</p>}
+
+      {/* ── Confirmation modal ─────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {modal && (
+          <motion.div key="confirm"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] grid place-items-center overflow-y-auto bg-noir/65 p-4 backdrop-blur-sm"
+            onClick={closeModal}>
+            <motion.div
+              initial={{ opacity: 0, y: 18, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.98 }} transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-[440px] rounded-3xl border border-champ/25 bg-surface p-6 shadow-[0_50px_110px_-35px_rgba(0,0,0,0.6)]">
+              {!success ? (
+                <>
+                  <div className="mb-4 flex items-center justify-between">
+                    <h4 className="text-[1.1rem] font-semibold text-ink">Confirm your reservation</h4>
+                    <button onClick={closeModal} className="grid h-8 w-8 place-items-center rounded-full text-muted hover:bg-line/60">
+                      <X size={15} />
+                    </button>
+                  </div>
+                  <div className="divide-y divide-line/60 rounded-2xl border border-line bg-paper px-4 py-1">
+                    <Row label="Name" value={clientName} strong />
+                    <Row label="Phone" value={clientPhone} />
+                    <Row label="Email" value={clientEmail} />
+                    <Row label="Pickup" value={pickupLabel} />
+                    <Row label="Drop-off" value={dropoffLabel} />
+                    <Row label="Date" value={date} />
+                    <Row label="Time" value={time} />
+                    <Row label="Vehicle" value={vehicle?.name} />
+                    <Row label="Distance" value={distanceKm != null ? `${distanceKm} km` : "—"} />
+                    <Row label="Duration" value={durationText} />
+                    <Row label="Final price" value={priceMad != null ? `${formatCurrency(priceMad)} · ≈ €${priceEur.toFixed(2)}` : "—"} strong />
+                  </div>
+                  <div className="mt-5 flex gap-3">
+                    <button onClick={closeModal}
+                      className="flex-1 rounded-xl border border-line px-5 py-3 text-[0.8rem] font-semibold text-body transition-colors hover:border-ink hover:text-ink">
+                      Cancel
+                    </button>
+                    <motion.button onClick={confirmReservation}
+                      whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                      className="flex-[1.4] rounded-xl bg-champ px-5 py-3 text-[0.8rem] font-semibold text-white transition-colors hover:bg-champ-dk">
+                      Confirm reservation
+                    </motion.button>
+                  </div>
+                </>
+              ) : (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="py-4 text-center">
+                  <motion.span
+                    initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: "spring", stiffness: 260, damping: 18 }}
+                    className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-500/12 text-emerald-600">
+                    <CheckCircle2 size={34} strokeWidth={1.6} />
+                  </motion.span>
+                  <h4 className="mt-4 text-[1.15rem] font-semibold text-ink">Reservation sent</h4>
+                  <p className="mx-auto mt-2 max-w-[30ch] text-[0.84rem] leading-relaxed text-body">
+                    Your request is saved and WhatsApp has opened with your booking
+                    details — send the message and our concierge will confirm shortly.
+                  </p>
+                  <button onClick={closeModal}
+                    className="mt-6 rounded-full bg-noir px-8 py-3 text-[0.8rem] font-semibold text-cream transition-colors hover:bg-ink">
+                    Done
+                  </button>
+                </motion.div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function ClientField({ icon, type, placeholder, value, onChange, autoComplete }) {
+  return (
+    <label className="flex items-center gap-3 rounded-xl border border-line bg-paper px-4 py-3 transition-colors duration-300 focus-within:border-champ">
+      <span className="text-champ">{icon}</span>
+      <input
+        type={type} value={value} placeholder={placeholder} autoComplete={autoComplete}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full bg-transparent text-[0.86rem] text-ink outline-none placeholder:text-muted/60"
+      />
+    </label>
   );
 }
 

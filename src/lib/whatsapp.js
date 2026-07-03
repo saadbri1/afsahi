@@ -16,6 +16,9 @@ export const SIMPLE_WHATSAPP_MESSAGE =
 // Full booking message — built from the shared booking state. Any missing field
 // is omitted cleanly (no "undefined" lines). Price shown in MAD with EUR derived.
 export function buildBookingMessage({
+  clientName,
+  clientPhone,
+  clientEmail,
   pickup,
   dropoff,
   vehicle,
@@ -28,6 +31,9 @@ export function buildBookingMessage({
   luggage,
 } = {}) {
   const lines = ["Hello AFSAHI Luxury Transport,", "I would like to book.", ""];
+  if (clientName) lines.push(`Name: ${clientName}`);
+  if (clientPhone) lines.push(`Phone: ${clientPhone}`);
+  if (clientEmail) lines.push(`Email: ${clientEmail}`);
   if (pickup) lines.push(`Pickup: ${pickup}`);
   if (dropoff) lines.push(`Drop-off: ${dropoff}`);
   if (vehicle) lines.push(`Vehicle: ${vehicle}`);

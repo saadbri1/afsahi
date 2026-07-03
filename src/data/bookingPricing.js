@@ -10,14 +10,15 @@
 import { IMAGES } from "./images.js";
 
 // ⬇️ EDIT VEHICLE LIST + PRICE PER KM (MAD) HERE
+// Premium black chauffeur fleet only (Economy / white Skoda Superb removed).
 export const VEHICLES = [
-  { id: "skoda-superb",          name: "Skoda Superb",         category: "Economy",  image: IMAGES.fleetEconomy, pricePerKm: 12.7, passengers: 3,  luggage: 2 },
-  { id: "skoda-kodiaq",          name: "Skoda Kodiaq",         category: "Economy",  image: IMAGES.fleetSuv,     pricePerKm: 12.7, passengers: 4,  luggage: 3 },
-  { id: "mercedes-eclass",       name: "Mercedes E-Class",     category: "Business", image: IMAGES.fleetSedan,   pricePerKm: 18.3, passengers: 3,  luggage: 2 },
-  { id: "mercedes-vito",         name: "Mercedes Vito",        category: "Van",      image: IMAGES.fleetVanExec, pricePerKm: 20,   passengers: 7,  luggage: 6 },
-  { id: "ford-tourneo",          name: "Ford Tourneo",         category: "Van",      image: "/images/vehicles/business-van-real.png", pricePerKm: 20, passengers: 7, luggage: 6 },
-  { id: "mercedes-vclass",       name: "Mercedes V-Class",     category: "Van",      image: IMAGES.fleetVan,     pricePerKm: 20,   passengers: 7,  luggage: 6 },
-  { id: "mercedes-sprinter-vip", name: "Mercedes Sprinter VIP", category: "VIP",     image: IMAGES.fleetMinibus, pricePerKm: 83.3, passengers: 19, luggage: 20 },
+  { id: "mercedes-eclass",       name: "Mercedes E-Class",      category: "Business",    image: IMAGES.fleetSedan,   pricePerKm: 18.3, passengers: 3,  luggage: 2 },
+  { id: "mercedes-sclass",       name: "Mercedes S-Class",      category: "First Class", image: IMAGES.fleetFirst,   pricePerKm: 25,   passengers: 3,  luggage: 2 },
+  { id: "skoda-kodiaq",          name: "Skoda Kodiaq",          category: "SUV",         image: IMAGES.fleetSuv,     pricePerKm: 15,   passengers: 4,  luggage: 3 },
+  { id: "mercedes-vito",         name: "Mercedes Vito",         category: "Van",         image: IMAGES.fleetVanExec, pricePerKm: 20,   passengers: 7,  luggage: 6 },
+  { id: "ford-tourneo",          name: "Ford Tourneo",          category: "Van",         image: "/images/vehicles/business-van-real.png", pricePerKm: 20, passengers: 7, luggage: 6 },
+  { id: "mercedes-vclass",       name: "Mercedes V-Class",      category: "Van",         image: IMAGES.fleetVan,     pricePerKm: 20,   passengers: 7,  luggage: 6 },
+  { id: "mercedes-sprinter-vip", name: "Mercedes Sprinter VIP", category: "VIP",         image: IMAGES.fleetMinibus, pricePerKm: 83.3, passengers: 19, luggage: 20 },
 ];
 
 // Flip this to "#C9A24B" (gold) to keep selection fully on-brand instead of blue.

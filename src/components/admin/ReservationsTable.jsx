@@ -33,7 +33,7 @@ export default function ReservationsTable({ items, onStatus, onDelete }) {
     if (from && (r.date || "") < from) return false;
     if (to && (r.date || "") > to) return false;
     if (q) {
-      const hay = `${r.pickup || ""} ${r.dropoff || ""}`.toLowerCase();
+      const hay = `${r.pickup || ""} ${r.dropoff || ""} ${r.clientName || ""} ${r.clientPhone || ""} ${r.clientEmail || ""}`.toLowerCase();
       if (!hay.includes(q.toLowerCase())) return false;
     }
     return true;
@@ -83,10 +83,10 @@ export default function ReservationsTable({ items, onStatus, onDelete }) {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
-          <table className="w-full min-w-[880px] text-left">
+          <table className="w-full min-w-[1020px] text-left">
             <thead>
               <tr className="border-b border-line bg-sand/60 text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-muted">
-                <Th>Status</Th><Th>Route</Th><Th>Date · Time</Th><Th>Vehicle</Th>
+                <Th>Status</Th><Th>Client</Th><Th>Route</Th><Th>Date · Time</Th><Th>Vehicle</Th>
                 <Th className="text-right">Distance</Th><Th className="text-right">Duration</Th>
                 <Th className="text-right">Price</Th><Th className="text-right">Actions</Th>
               </tr>
@@ -101,6 +101,11 @@ export default function ReservationsTable({ items, onStatus, onDelete }) {
                     <p className="mt-1 text-[0.62rem] text-muted">
                       {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "—"}
                     </p>
+                  </Td>
+                  <Td>
+                    <p className="font-medium text-ink">{r.clientName || "—"}</p>
+                    {r.clientPhone && <p className="text-[0.68rem] text-muted">{r.clientPhone}</p>}
+                    {r.clientEmail && <p className="max-w-[11rem] truncate text-[0.68rem] text-champ-dk" title={r.clientEmail}>{r.clientEmail}</p>}
                   </Td>
                   <Td>
                     <p className="font-medium text-ink" title={`${r.pickup} → ${r.dropoff}`}>
