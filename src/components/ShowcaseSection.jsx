@@ -2,7 +2,6 @@
 import { CheckCircle, ArrowRight } from "lucide-react";
 import { useLang } from "../context/LanguageContext.jsx";
 import { useScrollReveal } from "../hooks/useScrollReveal.js";
-import { IMAGES } from "../data/images.js";
 
 function BookingMockup() {
   return (

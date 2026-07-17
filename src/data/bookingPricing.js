@@ -16,13 +16,13 @@ export const VEHICLES = [
   { id: "mercedes-sclass",       name: "Mercedes S-Class",      category: "First Class", image: IMAGES.fleetFirst,   pricePerKm: 25,   passengers: 3,  luggage: 2 },
   { id: "skoda-kodiaq",          name: "Skoda Kodiaq",          category: "SUV",         image: IMAGES.fleetSuv,     pricePerKm: 15,   passengers: 4,  luggage: 3 },
   { id: "mercedes-vito",         name: "Mercedes Vito",         category: "Van",         image: IMAGES.fleetVanExec, pricePerKm: 20,   passengers: 7,  luggage: 6 },
-  { id: "ford-tourneo",          name: "Ford Tourneo",          category: "Van",         image: "/images/vehicles/business-van-real.png", pricePerKm: 20, passengers: 7, luggage: 6 },
+  { id: "ford-tourneo",          name: "Ford Tourneo",          category: "Van",         image: "/images/optimized/vehicles/business-van.webp", pricePerKm: 20, passengers: 7, luggage: 6 },
   { id: "mercedes-vclass",       name: "Mercedes V-Class",      category: "Van",         image: IMAGES.fleetVan,     pricePerKm: 20,   passengers: 7,  luggage: 6 },
   { id: "mercedes-sprinter-vip", name: "Mercedes Sprinter VIP", category: "VIP",         image: IMAGES.fleetMinibus, pricePerKm: 83.3, passengers: 19, luggage: 20 },
 ];
 
 // Flip this to "#C9A24B" (gold) to keep selection fully on-brand instead of blue.
-export const SELECTED_BORDER_COLOR = "#1D6BFF";
+export const SELECTED_BORDER_COLOR = "#A9823F";
 
 // ⬇️ ADMIN: EDIT EXCHANGE RATE HERE (MAD per 1 EUR)
 export const EXCHANGE_RATE = 10.8;

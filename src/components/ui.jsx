@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { scrollToHash } from "../hooks/useLenis.js";
 import { useScrollReveal } from "../hooks/useScrollReveal.js";
 
@@ -61,15 +60,10 @@ export function SectionHead({ eyebrow, title, text, center = true }) {
 }
 
 export function Reveal({ children, delay = 0, className = "" }) {
+  const ref = useScrollReveal({ delay, y: 16 });
   return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0, y: 34 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.25 }}
-      transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay }}
-    >
+    <div ref={ref} className={className}>
       {children}
-    </motion.div>
+    </div>
   );
 }

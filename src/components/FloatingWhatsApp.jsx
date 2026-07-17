@@ -3,7 +3,6 @@
 // Premium gold-ringed green pill, gentle hover scale (transform only), a soft
 // pulse that respects prefers-reduced-motion. Opens the generic WhatsApp chat.
 // ─────────────────────────────────────────────────────────────────────────────
-import { motion, useReducedMotion } from "framer-motion";
 import { buildWhatsAppUrl, SIMPLE_WHATSAPP_MESSAGE } from "../lib/whatsapp.js";
 
 function WaGlyph() {
@@ -15,8 +14,6 @@ function WaGlyph() {
 }
 
 export default function FloatingWhatsApp() {
-  const reduce = useReducedMotion();
-
   return (
     <a
       href={buildWhatsAppUrl(SIMPLE_WHATSAPP_MESSAGE)}
@@ -25,18 +22,12 @@ export default function FloatingWhatsApp() {
       aria-label="Contact AFSAHI on WhatsApp"
       className="group fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-[60] block sm:bottom-6 sm:right-6"
     >
-      <motion.span
-        whileHover={{ scale: 1.06 }}
-        whileTap={{ scale: 0.95 }}
-        transition={{ type: "spring", stiffness: 300, damping: 20 }}
-        className="relative grid h-14 w-14 place-items-center rounded-full bg-[#25D366] text-white shadow-[0_10px_30px_-8px_rgba(0,0,0,0.45)] ring-2 ring-champ/60 ring-offset-2 ring-offset-transparent"
+      <span
+        className="relative grid h-14 w-14 place-items-center rounded-full bg-[#25D366] text-white shadow-[0_10px_30px_-8px_rgba(0,0,0,0.45)] ring-2 ring-champ/60 ring-offset-2 ring-offset-transparent transition-transform duration-300 ease-luxe group-hover:scale-105 group-active:scale-95"
       >
-        {/* soft pulse — disabled under prefers-reduced-motion */}
-        {!reduce && (
-          <span className="absolute inset-0 -z-10 animate-ping rounded-full bg-[#25D366]/40 [animation-duration:2.4s]" />
-        )}
+        <span className="whatsapp-pulse absolute inset-0 -z-10 rounded-full bg-[#25D366]/35" />
         <WaGlyph />
-      </motion.span>
+      </span>
     </a>
   );
 }

@@ -28,7 +28,7 @@ export default function WhyAfsahi() {
   }, [reduce]);
 
   return (
-    <section className="section bg-paper">
+    <section id="why-afsahi" className="section bg-paper">
       <div className="wrap">
         <div className="mb-14 text-center">
           <span className="eyebrow eyebrow--center mb-4 inline-flex">{w.kicker}</span>

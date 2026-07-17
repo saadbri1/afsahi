@@ -2,56 +2,93 @@
 // AdminDashboard — /admin — owner login + premium analytics dashboard.
 // Layout: dark sidebar (nav) · top header (profile) · Overview / Reservations.
 //
-// Data: Supabase (hosted Postgres) — reservations from ALL client devices.
-//
-// ⚠️ SECURITY (read before shipping to a real client):
-// The login is still frontend-only (VITE_* credentials are bundled into the
-// public JS), and the table's RLS policies allow the public anon key to
-// read/write. Good enough for launch; for a hardened dashboard, add Supabase
-// Auth and restrict select/update/delete to authenticated admins.
+// Data and authorization: Supabase Auth + Postgres Row Level Security.
 // ─────────────────────────────────────────────────────────────────────────────
-import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { lazy, Suspense, useState, useEffect, useCallback } from "react";
 import {
   Lock, LogOut, LayoutDashboard, CalendarRange, UserRound, Crown,
 } from "lucide-react";
 import Logo, { Wordmark } from "../components/Logo.jsx";
 import {
-  getReservations, updateReservationStatus, deleteReservation,
+  getReservationsPage, getReservationAnalytics, updateReservationStatus, deleteReservation,
 } from "../lib/reservations.js";
-import Overview from "../components/admin/Overview.jsx";
-import ReservationsTable from "../components/admin/ReservationsTable.jsx";
+import {
+  getAuthorizedAdmin, onAdminAuthChange, signInAdmin, signOutAdmin,
+} from "../lib/adminAuth.js";
 
-// Demo credentials — override via .env (VITE_ADMIN_USERNAME / VITE_ADMIN_PASSWORD).
-const ADMIN_USER = import.meta.env.VITE_ADMIN_USERNAME || "admin";
-const ADMIN_PASS = import.meta.env.VITE_ADMIN_PASSWORD || "change_this_password";
-const SESSION_KEY = "afsahi_admin_session";
+const Overview = lazy(() => import("../components/admin/Overview.jsx"));
+const ReservationsTable = lazy(() => import("../components/admin/ReservationsTable.jsx"));
+const PAGE_SIZE = 25;
 
 export default function AdminDashboard() {
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem(SESSION_KEY) === "1");
-  return authed
-    ? <Shell onLogout={() => { sessionStorage.removeItem(SESSION_KEY); setAuthed(false); }} />
-    : <Login onSuccess={() => { sessionStorage.setItem(SESSION_KEY, "1"); setAuthed(true); }} />;
+  const [auth, setAuth] = useState({ status: "checking", user: null, configurationError: false });
+
+  const verify = useCallback(async () => {
+    try {
+      const result = await getAuthorizedAdmin();
+      setAuth({
+        status: result.authorized ? "authorized" : "login",
+        user: result.authorized ? result.user : null,
+        configurationError: Boolean(result.configurationError),
+      });
+    } catch (error) {
+      console.error("[AFSAHI] Admin session verification failed:", error);
+      setAuth({ status: "login", user: null, configurationError: false });
+    }
+  }, []);
+
+  useEffect(() => {
+    verify();
+    return onAdminAuthChange((event) => {
+      if (event === "SIGNED_OUT") setAuth({ status: "login", user: null, configurationError: false });
+    });
+  }, [verify]);
+
+  if (auth.status === "checking") return <AdminLoading label="Verifying secure session…" />;
+  if (auth.status === "authorized") {
+    return (
+      <Shell
+        user={auth.user}
+        onLogout={async () => {
+          await signOutAdmin();
+          setAuth({ status: "login", user: null, configurationError: false });
+        }}
+      />
+    );
+  }
+  return (
+    <Login
+      configurationError={auth.configurationError}
+      onSuccess={(result) => setAuth({ status: "authorized", user: result.user, configurationError: false })}
+    />
+  );
 }
 
 /* ── Login ─────────────────────────────────────────────────────────────────── */
-function Login({ onSuccess }) {
-  const [user, setUser] = useState("");
+function Login({ onSuccess, configurationError }) {
+  const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    if (user.trim() === ADMIN_USER && pass === ADMIN_PASS) onSuccess();
-    else setError("Incorrect username or password.");
+    if (submitting || configurationError) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      onSuccess(await signInAdmin(email, pass));
+    } catch (authError) {
+      setError(authError?.message || "Sign-in failed. Check your details and try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="grid min-h-screen place-items-center bg-noir px-5">
-      <motion.form onSubmit={submit}
-        initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-[400px] rounded-3xl border border-champ/25 bg-[#1d1913] p-9 shadow-[0_40px_90px_-30px_rgba(0,0,0,0.8)]">
+      <form onSubmit={submit}
+        className="admin-enter w-full max-w-[400px] rounded-3xl border border-champ/25 bg-[#1d1913] p-7 shadow-[0_40px_90px_-30px_rgba(0,0,0,0.8)] sm:p-9">
         <div className="mb-8 flex flex-col items-center gap-3 text-cream">
           <Logo size={40} />
           <Wordmark />
@@ -59,30 +96,34 @@ function Login({ onSuccess }) {
             <Lock size={11} /> Admin access
           </p>
         </div>
-        <Field label="Username" type="text" value={user} onChange={setUser} autoFocus />
-        <Field label="Password" type="password" value={pass} onChange={setPass} />
-        {error && (
-          <p className="mb-4 rounded-lg border border-red-400/25 bg-red-400/10 px-3 py-2 text-center text-[0.78rem] text-red-300">
-            {error}
-          </p>
-        )}
-        <button type="submit"
-          className="w-full rounded-xl bg-champ px-6 py-3.5 text-[0.82rem] font-semibold tracking-wide text-white transition-all duration-300 hover:bg-champ-lt">
-          Sign in
+        <Field label="Email" type="email" value={email} onChange={setEmail} autoComplete="username" autoFocus />
+        <Field label="Password" type="password" value={pass} onChange={setPass} autoComplete="current-password" />
+        <div className="min-h-[3.25rem]" aria-live="polite">
+          {(error || configurationError) && (
+            <p className="mb-4 rounded-lg border border-red-400/25 bg-red-400/10 px-3 py-2 text-center text-[0.78rem] text-red-300">
+              {configurationError
+                ? "Admin access is not configured for this deployment."
+                : error}
+            </p>
+          )}
+        </div>
+        <button type="submit" disabled={submitting || configurationError}
+          className="w-full rounded-xl bg-champ px-6 py-3.5 text-[0.82rem] font-semibold tracking-wide text-white transition-all duration-300 hover:bg-champ-lt disabled:cursor-not-allowed disabled:opacity-55">
+          {submitting ? "Verifying…" : "Sign in securely"}
         </button>
         <p className="mt-5 text-center text-[0.66rem] leading-relaxed text-cream/35">
-          Frontend demo login — for a production dashboard, connect Supabase Auth.
+          Protected by Supabase Auth and database-level admin policies.
         </p>
-      </motion.form>
+      </form>
     </div>
   );
 }
 
-function Field({ label, type, value, onChange, autoFocus }) {
+function Field({ label, type, value, onChange, autoFocus, autoComplete }) {
   return (
     <label className="mb-4 block">
       <span className="mb-1.5 block text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-cream/45">{label}</span>
-      <input type={type} value={value} autoFocus={autoFocus}
+      <input type={type} value={value} autoFocus={autoFocus} autoComplete={autoComplete} required
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-xl border border-cream/15 bg-noir px-4 py-3 text-[0.9rem] text-cream outline-none transition-colors focus:border-champ" />
     </label>
@@ -95,26 +136,35 @@ const NAV = [
   { id: "reservations", label: "Reservations", icon: CalendarRange },
 ];
 
-function Shell({ onLogout }) {
+function Shell({ onLogout, user }) {
   const [section, setSection] = useState("overview");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [analytics, setAnalytics] = useState(null);
 
   // Async fetch from Supabase (skeletons show while loading).
   const refresh = useCallback(async () => {
     try {
       setFetchError(null);
-      setItems(await getReservations());
+      const [result, dashboardAnalytics] = await Promise.all([
+        getReservationsPage({ page, pageSize: PAGE_SIZE }),
+        getReservationAnalytics(),
+      ]);
+      setItems(result.items);
+      setTotal(result.total);
+      setAnalytics(dashboardAnalytics);
     } catch (err) {
       console.error("[AFSAHI] Failed to load reservations:", err);
       setFetchError(
         err?.message?.includes("Could not find the table")
-          ? "The 'reservations' table doesn't exist yet — run the setup SQL from src/lib/reservations.js in Supabase → SQL Editor."
+          ? "The reservations schema is missing — run the checked-in Supabase migration."
           : "Couldn't load reservations from Supabase. Check your connection and try again."
       );
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     (async () => { await refresh(); setLoading(false); })();
@@ -194,7 +244,7 @@ function Shell({ onLogout }) {
             {/* Admin profile */}
             <div className="hidden items-center gap-3 sm:flex">
               <div className="text-right leading-tight">
-                <p className="text-[0.78rem] font-semibold text-ink">{ADMIN_USER}</p>
+                <p className="max-w-[14rem] truncate text-[0.78rem] font-semibold text-ink">{user?.email || "Administrator"}</p>
                 <p className="text-[0.6rem] uppercase tracking-[0.14em] text-champ-dk">Owner</p>
               </div>
               <span className="grid h-9 w-9 place-items-center rounded-full border border-champ/40 bg-champ/15 text-champ-dk">
@@ -221,11 +271,32 @@ function Shell({ onLogout }) {
           {loading ? (
             <Skeletons />
           ) : section === "overview" ? (
-            <Overview items={items} />
+            <Suspense fallback={<Skeletons />}><Overview analytics={analytics} /></Suspense>
           ) : (
-            <ReservationsTable items={items} onStatus={setStatus} onDelete={remove} />
+            <Suspense fallback={<Skeletons />}>
+              <ReservationsTable
+                items={items}
+                onStatus={setStatus}
+                onDelete={remove}
+                page={page}
+                pageSize={PAGE_SIZE}
+                total={total}
+                onPage={setPage}
+              />
+            </Suspense>
           )}
         </main>
+      </div>
+    </div>
+  );
+}
+
+function AdminLoading({ label }) {
+  return (
+    <div className="grid min-h-screen place-items-center bg-noir px-5 text-center text-cream/65">
+      <div>
+        <span className="mx-auto mb-4 block h-8 w-8 animate-spin rounded-full border-2 border-champ/25 border-t-champ" />
+        <p className="text-[0.76rem] uppercase tracking-[0.16em]">{label}</p>
       </div>
     </div>
   );

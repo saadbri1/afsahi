@@ -20,19 +20,11 @@ export default {
         cream: "#F6F2EA", // text on dark bands
       },
       fontFamily: {
-        sans: ['"Hanken Grotesk"', "system-ui", "sans-serif"],
-        // single-family system; `serif` aliased to the same grotesk so any
-        // leftover font-serif usage stays consistent during the migration
-        serif: ['"Hanken Grotesk"', "system-ui", "sans-serif"],
+        sans: ['"Avenir Next"', '"Helvetica Neue"', "Arial", "system-ui", "sans-serif"],
+        serif: ['"Avenir Next"', '"Helvetica Neue"', "Arial", "system-ui", "sans-serif"],
       },
       letterSpacing: { luxe: "0.26em" },
       transitionTimingFunction: { luxe: "cubic-bezier(.16,1,.3,1)" },
-      keyframes: {
-        shimmer: { "0%,60%": { left: "-60%" }, "100%": { left: "130%" } },
-      },
-      animation: {
-        shimmer: "shimmer 5s ease-in-out infinite",
-      },
     },
   },
   plugins: [],

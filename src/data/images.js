@@ -18,36 +18,28 @@
 export const IMAGES = {
   // hero — REAL photo: chauffeur with umbrella opening S-Class door for client
   // (Pexels · Pavel Danilyuk)
-  hero: "/images/hero/hero-real.jpg",
+  hero: "/images/optimized/hero-1920.webp",
 
   // services — REAL photos (Pexels · Pavel Danilyuk)
-  serviceAirport: "/images/services/airport-transfers-real.jpg", // executive arrival, hotel "Lounge"
-  serviceHourly: "/images/services/by-the-hour-real.jpg",        // chauffeured client on the phone
-  serviceCity: "/images/morocco-road.jpg",
+  serviceAirport: "/images/optimized/services/airport-transfers.webp",
+  serviceHourly: "/images/optimized/services/by-the-hour.webp",
 
   // section photos — REAL (Pexels · Pavel Danilyuk)
-  sectionOnboard: "/images/sections/onboard-detail-real.jpg", // chauffeur opening the rear door handle (rain-flecked black sedan)
-  sectionCta: "/images/sections/cta-ready-real.jpg",   // side-view S-Class at a modern hotel
+  sectionOnboard: "/images/optimized/sections/onboard-detail.webp",
+  sectionCta: "/images/optimized/sections/cta-ready.webp",
 
   // experience — premium leather interior, ambient gold light
-  interior: "/images/van-interior.jpg",
+  interior: "/images/optimized/interior.webp",
   // unsplash alt: "https://images.unsplash.com/photo-1503736334956-4c8f8e92946d?auto=format&fit=crop&w=2000&q=80"
 
   // fleet — numbered studio shots in /images/cars/ (drop replacements here as cars/N.png)
-  fleetSedan:       "/images/cars/1.png",   // Business Class — Mercedes E-Class
-  fleetFirst:       "/images/cars/3.png",   // First Class — Mercedes E-Class
-  fleetSuv:         "/images/cars/4.png",   // Premium SUV — Skoda Kodiaq
-  fleetPremium:     "/images/cars/6.png",   // Premium Sedan — Skoda Superb black
-  fleetEconomy:     "/images/cars/7.png",   // Economy Sedan — Skoda Superb white
-  fleetVan:         "/images/cars/2.png",   // Business Van — Mercedes V-Class
-  fleetVanExec:     "/images/cars/5.png",   // Executive Van — Mercedes V-Class
-  fleetMinibus:     "/images/cars/8.png",   // VIP Minibus — Mercedes Sprinter
-  fleetShuttle:     "/images/cars/9.png",   // Premium Shuttle — Ford Tourneo Custom
-
-  // destination tiles
-  cityCasablanca: "/images/hero-sedan.jpg",
-  cityMarrakech: "/images/morocco-road.jpg",
-  cityTanger: "/images/chauffeur-door.jpg",
-  cityRabat: "/images/meet-greet.jpg",
-  cityAgadir: "/images/van-interior.jpg",
+  fleetSedan:       "/images/optimized/cars/1.webp",
+  fleetFirst:       "/images/optimized/cars/3.webp",
+  fleetSuv:         "/images/optimized/cars/4.webp",
+  fleetPremium:     "/images/optimized/cars/6.webp",
+  fleetEconomy:     "/images/optimized/cars/7.webp",
+  fleetVan:         "/images/optimized/cars/2.webp",
+  fleetVanExec:     "/images/optimized/cars/5.webp",
+  fleetMinibus:     "/images/optimized/cars/8.webp",
+  fleetShuttle:     "/images/optimized/cars/9.webp",
 };

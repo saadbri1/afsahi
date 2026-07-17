@@ -1,12 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Dashboard analytics — pure functions over the reservations list.
+// Shared dashboard formatting helpers. Aggregate analytics are calculated in
+// Postgres so the admin does not need to download the entire reservations table.
 //
 // REVENUE RULE: only CONFIRMED reservations count as revenue. New reservations
 // are shown separately as "pending value"; cancelled never count.
 //
-// ⚠️ Data source is the localStorage demo store (this browser only). For a real
-// business dashboard, swap src/lib/reservations.js for Supabase/Firebase — the
-// functions here are pure and will work unchanged on server data.
 // ─────────────────────────────────────────────────────────────────────────────
 import { STATUS } from "./reservations.js";
 

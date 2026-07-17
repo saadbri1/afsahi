@@ -24,7 +24,7 @@ export default function VehicleCard({ vehicle, distanceKm, routeStatus, selected
       transition={{ type: "spring", stiffness: 300, damping: 22 }}
       animate={{
         boxShadow: selected
-          ? "0 0 0 2px #1D6BFF, 0 26px 50px -20px rgba(21,18,12,0.30)"
+          ? "0 0 0 2px #A9823F, 0 26px 50px -20px rgba(21,18,12,0.30)"
           : "0 6px 22px -12px rgba(21,18,12,0.14)",
       }}
       style={{ borderColor: selected ? SELECTED_BORDER_COLOR : "#E7DECC" }}
@@ -41,7 +41,10 @@ export default function VehicleCard({ vehicle, distanceKm, routeStatus, selected
         <img
           src={vehicle.image}
           alt={vehicle.name}
+          width="672"
+          height="900"
           loading="lazy"
+          decoding="async"
           draggable={false}
           className="h-full w-full object-contain p-3 transition-transform duration-700 ease-out group-hover:scale-105"
         />

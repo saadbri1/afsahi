@@ -62,7 +62,7 @@ export default function BookingSystem({ onBack }) {
         </div>
 
         {/* LEFT: large cards (3 visible per row) · RIGHT: map + sticky summary */}
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_440px] lg:items-start">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(340px,400px)] lg:items-start xl:grid-cols-[minmax(0,1fr)_420px]">
             {/* EXPERIENCE — vehicle cards ONLY */}
             <div className="min-w-0">
               <h3 className="mb-5 text-[1.15rem] font-semibold tracking-tight text-ink">
@@ -70,7 +70,7 @@ export default function BookingSystem({ onBack }) {
               </h3>
               {/* Large cards, 3 per row (fills the column) — all categories
                   shown, none removed or shrunk to a thin strip. */}
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 {VEHICLES.map((v) => (
                   <VehicleCard
                     key={v.id}
@@ -86,7 +86,7 @@ export default function BookingSystem({ onBack }) {
 
             {/* RIGHT — map (≈440×330) on top + read-only summary under, sticky */}
             <div className="space-y-5 lg:sticky lg:top-24">
-              <div className="h-[330px] w-full">
+              <div className="h-[270px] w-full sm:h-[310px] lg:h-[330px]">
                 <RouteMap
                   pickup={pickup}
                   dropoff={dropoff}

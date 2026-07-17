@@ -22,6 +22,7 @@ export default function ComfortSection() {
           </div>
           <div className="relative aspect-[16/9] overflow-hidden rounded-2xl lg:row-span-2">
             <img src={IMAGES.sectionOnboard} alt="Chauffeur opening the rear door of a rain-flecked black luxury sedan"
+              width="1440" height="961" loading="lazy" decoding="async"
               className="h-full w-full object-cover object-[58%_52%]" />
             <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(16,13,9,0.28)_0%,transparent_60%)]" />
           </div>
