@@ -13,21 +13,22 @@ function parseProjectUrl(value) {
     throw new Error("VITE_SUPABASE_URL must be a valid URL such as https://project.supabase.co.");
   }
 
-  const path = parsed.pathname.replace(/\/+$/, "");
   if (
     parsed.protocol !== "https:" ||
     !parsed.hostname.endsWith(".supabase.co") ||
-    path ||
     parsed.search ||
     parsed.hash ||
     parsed.username ||
     parsed.password
   ) {
     throw new Error(
-      "VITE_SUPABASE_URL must contain only the Supabase project origin (https://project.supabase.co), without /v1, /rest, or /rest/v1."
+      "VITE_SUPABASE_URL must point to a valid Supabase project origin such as https://project.supabase.co."
     );
   }
 
+  // Vite embeds deployment variables at build time. Canonicalizing to the
+  // origin protects the official client from stale /v1 or /rest/v1 suffixes;
+  // createClient remains solely responsible for generating REST endpoints.
   return parsed.origin;
 }
 
