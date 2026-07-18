@@ -20,10 +20,10 @@ export default function FloatingWhatsApp() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Contact AFSAHI on WhatsApp"
-      className="group fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-[60] block sm:bottom-6 sm:right-6"
+      className="group fixed bottom-[max(0.9rem,env(safe-area-inset-bottom))] right-4 z-[60] block sm:bottom-6 sm:right-6"
     >
       <span
-        className="relative grid h-14 w-14 place-items-center rounded-full bg-[#25D366] text-white shadow-[0_10px_30px_-8px_rgba(0,0,0,0.45)] ring-2 ring-champ/60 ring-offset-2 ring-offset-transparent transition-transform duration-300 ease-luxe group-hover:scale-105 group-active:scale-95"
+        className="relative grid h-12 w-12 place-items-center rounded-full bg-[#25D366] text-white shadow-[0_10px_30px_-8px_rgba(0,0,0,0.45)] ring-2 ring-champ/60 ring-offset-2 ring-offset-transparent transition-transform duration-300 ease-luxe group-hover:scale-105 group-active:scale-95 sm:h-14 sm:w-14"
       >
         <span className="whatsapp-pulse absolute inset-0 -z-10 rounded-full bg-[#25D366]/35" />
         <WaGlyph />

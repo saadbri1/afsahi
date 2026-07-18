@@ -115,7 +115,14 @@ export default function ReservationsTable({
                     </p>
                   </Td>
                   <Td>{r.date || "—"}<span className="text-muted"> · {r.time || "—"}</span></Td>
-                  <Td>{r.vehicle || "—"}</Td>
+                  <Td>
+                    <p>{r.vehicle || "—"}</p>
+                    {(r.passengers != null || r.luggage != null) && (
+                      <p className="text-[0.66rem] text-muted">
+                        {r.passengers ?? "—"} pax · {r.luggage ?? "—"} bags
+                      </p>
+                    )}
+                  </Td>
                   <Td className="text-right">{r.distanceKm != null ? `${r.distanceKm} km` : "—"}</Td>
                   <Td className="text-right">{r.durationText || "—"}</Td>
                   <Td className="text-right">

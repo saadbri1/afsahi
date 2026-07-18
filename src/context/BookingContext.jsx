@@ -7,6 +7,7 @@
 // no API loader to wait on.
 // ─────────────────────────────────────────────────────────────────────────────
 import { createContext, useContext, useState, useCallback } from "react";
+import { DEFAULT_VEHICLE_ID } from "../data/bookingPricing.js";
 
 const BookingContext = createContext(null);
 
@@ -21,7 +22,11 @@ export function BookingProvider({ children }) {
   const [distanceKm, setDistanceKm] = useState(null); // derived from the OSRM route
   const [durationText, setDurationText] = useState(null);
   const [routeStatus, setRouteStatus] = useState("idle"); // idle | loading | ok | error
-  const [selectedVehicleId, setSelectedVehicleId] = useState("mercedes-eclass");
+  const [selectedVehicleId, setSelectedVehicleId] = useState(DEFAULT_VEHICLE_ID);
+
+  // Party size — drives which vehicles are offered. 1+ passengers, 0+ bags.
+  const [passengers, setPassengers] = useState(1);
+  const [bags, setBags] = useState(0);
 
   const setRoute = useCallback(({ distanceKm, durationText, status }) => {
     setDistanceKm(distanceKm ?? null);
@@ -44,6 +49,8 @@ export function BookingProvider({ children }) {
     time, setTime,
     distanceKm, durationText, routeStatus, setRoute,
     selectedVehicleId, setSelectedVehicleId,
+    passengers, setPassengers,
+    bags, setBags,
     resetTrip,
   };
 

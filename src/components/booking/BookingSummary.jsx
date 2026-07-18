@@ -17,7 +17,8 @@ function Row({ label, value, strong }) {
     <div className="flex items-baseline justify-between gap-4 py-1.5">
       <span className="text-[0.74rem] uppercase tracking-[0.1em] text-muted">{label}</span>
       <span className={`min-w-0 truncate text-right text-[0.85rem] ${strong ? "font-semibold text-ink" : "text-body"}`}>
-        {value || "—"}
+        {/* 0 is a valid value (zero bags) — don't let it fall through to "—" */}
+        {value === 0 ? 0 : value || "—"}
       </span>
     </div>
   );
@@ -35,6 +36,8 @@ export default function BookingSummary({
   durationText,
   routeStatus,
   vehicle,
+  passengers = 1,
+  bags = 0,
 }) {
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
@@ -87,8 +90,8 @@ export default function BookingSummary({
       priceEur,
       date,
       time,
-      passengers: vehicle?.passengers,
-      luggage: vehicle?.luggage,
+      passengers,
+      luggage: bags,
     });
 
   // Runs ONLY after the client presses "Confirm reservation" in the modal.
@@ -107,8 +110,9 @@ export default function BookingSummary({
         date,
         time,
         vehicle: vehicle?.name,
-        passengers: vehicle?.passengers,
-        luggage: vehicle?.luggage,
+        // the customer's requested counts — NOT the vehicle's capacity
+        passengers,
+        luggage: bags,
         distanceKm,
         durationText,
         priceMad,
@@ -142,6 +146,8 @@ export default function BookingSummary({
         <Row label="Time" value={time} />
         <Row label="Distance" value={distanceKm != null ? `${distanceKm} km` : routeStatus === "error" ? "Unavailable" : "Calculating…"} />
         <Row label="Duration" value={durationText || (routeStatus === "error" ? "Unavailable" : "Calculating…")} />
+        <Row label="Passengers" value={passengers} />
+        <Row label="Bags" value={bags} />
       </div>
 
       {/* Premium dark price card — MAD large/bold/white, EUR smaller/gold */}
@@ -217,6 +223,8 @@ export default function BookingSummary({
                     <Row label="Date" value={date} />
                     <Row label="Time" value={time} />
                     <Row label="Vehicle" value={vehicle?.name} />
+                    <Row label="Passengers" value={passengers} />
+                    <Row label="Bags" value={bags} />
                     <Row label="Distance" value={distanceKm != null ? `${distanceKm} km` : "—"} />
                     <Row label="Duration" value={durationText} />
                     <Row label="Final price" value={priceMad != null ? `${formatCurrency(priceMad)} · ≈ €${priceEur.toFixed(2)}` : "—"} strong />
