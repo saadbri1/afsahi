@@ -1,166 +1,170 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Reservations store — SUPABASE (hosted Postgres, cross-device).
-//
-// Every client booking is INSERTed here, and the /admin dashboard reads,
-// updates and deletes through this module. All functions are async.
-//
-// ── ONE-TIME SETUP ───────────────────────────────────────────────────────────
-// Run this once in Supabase → SQL Editor (dashboard):
-//
-//   create table if not exists public.reservations (
-//     id            uuid primary key default gen_random_uuid(),
-//     created_at    timestamptz not null default now(),
-//     status        text not null default 'New',
-//     pickup        text,
-//     dropoff       text,
-//     date          text,
-//     time          text,
-//     vehicle       text,
-//     passengers    int,
-//     luggage       int,
-//     distance_km   numeric,
-//     duration_text text,
-//     price_mad     numeric,
-//     price_eur     numeric,
-//     message       text
-//   );
-//   alter table public.reservations enable row level security;
-//   create policy "anon insert" on public.reservations for insert to anon with check (true);
-//   create policy "anon select" on public.reservations for select to anon using (true);
-//   create policy "anon update" on public.reservations for update to anon using (true) with check (true);
-//   create policy "anon delete" on public.reservations for delete to anon using (true);
-//
-// ⚠️ These policies allow anyone with the (public) anon key to read/modify the
-// table — acceptable for launch, but for a hardened dashboard add Supabase
-// Auth and restrict select/update/delete to authenticated admins.
-// ─────────────────────────────────────────────────────────────────────────────
-import { supabase } from "./supabase.js";
+import { getSupabase } from "./supabase.js";
 
 const TABLE = "reservations";
+const PAGE_SIZE = 25;
+const SELECT_COLUMNS = [
+  "id", "created_at", "status", "client_name", "client_phone", "client_email",
+  "pickup", "dropoff", "date", "time", "vehicle", "passengers", "luggage",
+  "distance_km", "duration_text", "price_mad", "price_eur", "message",
+].join(",");
 
-export const STATUS = { NEW: "New", CONFIRMED: "Confirmed", CANCELLED: "Cancelled" };
+export const STATUS = Object.freeze({ NEW: "New", CONFIRMED: "Confirmed", CANCELLED: "Cancelled" });
+const ALLOWED_STATUS = new Set(Object.values(STATUS));
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-// DB rows are snake_case; the UI/analytics use camelCase. Map here so the rest
-// of the app never changes when the storage layer does.
-function fromRow(r) {
+const cleanText = (value, max) => {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text ? text.slice(0, max) : null;
+};
+
+const cleanNumber = (value, min, max) => {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= min && number <= max ? number : null;
+};
+
+function fromRow(row) {
   return {
-    id: r.id,
-    createdAt: r.created_at,
-    status: r.status,
-    clientName: r.client_name,
-    clientPhone: r.client_phone,
-    clientEmail: r.client_email,
-    pickup: r.pickup,
-    dropoff: r.dropoff,
-    date: r.date,
-    time: r.time,
-    vehicle: r.vehicle,
-    passengers: r.passengers,
-    luggage: r.luggage,
-    distanceKm: r.distance_km,
-    durationText: r.duration_text,
-    priceMad: r.price_mad,
-    priceEur: r.price_eur,
-    message: r.message,
+    id: row.id,
+    createdAt: row.created_at,
+    status: row.status,
+    clientName: row.client_name,
+    clientPhone: row.client_phone,
+    clientEmail: row.client_email,
+    pickup: row.pickup,
+    dropoff: row.dropoff,
+    date: row.date,
+    time: row.time,
+    vehicle: row.vehicle,
+    passengers: row.passengers,
+    luggage: row.luggage,
+    distanceKm: row.distance_km,
+    durationText: row.duration_text,
+    priceMad: row.price_mad,
+    priceEur: row.price_eur,
+    message: row.message,
   };
 }
 
-function toRow(d) {
-  return {
-    status: d.status ?? STATUS.NEW,
-    client_name: d.clientName ?? null,
-    client_phone: d.clientPhone ?? null,
-    client_email: d.clientEmail ?? null,
-    pickup: d.pickup ?? null,
-    dropoff: d.dropoff ?? null,
-    date: d.date ?? null,
-    time: d.time ?? null,
-    vehicle: d.vehicle ?? null,
-    passengers: d.passengers ?? null,
-    luggage: d.luggage ?? null,
-    distance_km: d.distanceKm ?? null,
-    duration_text: d.durationText ?? null,
-    price_mad: d.priceMad ?? null,
-    price_eur: d.priceEur ?? null,
-    message: d.message ?? null,
-  };
-}
-
-// Newest first. Throws on network/table errors — callers show an error state.
-export async function getReservations() {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data || []).map(fromRow);
-}
-
-// Called by the booking flow when the client confirms the reservation.
-// If the client_* columns haven't been added yet (migration below not run),
-// retry once without them so no booking is ever lost — the client details
-// still arrive inside `message`.
-//
-//   -- Run once in Supabase → SQL Editor to add the client columns:
-//   alter table public.reservations
-//     add column if not exists client_name  text,
-//     add column if not exists client_phone text,
-//     add column if not exists client_email text;
-export async function addReservation(data) {
-  const row = toRow(data);
-  let { data: rows, error } = await supabase.from(TABLE).insert(row).select().single();
-  if (error && /client_/.test(error.message || "")) {
-    const { client_name, client_phone, client_email, ...legacy } = row;
-    ({ data: rows, error } = await supabase.from(TABLE).insert(legacy).select().single());
+function publicReservationRow(data) {
+  const email = cleanText(data.clientEmail, 254)?.toLowerCase() ?? null;
+  if (!cleanText(data.clientName, 120) || !cleanText(data.clientPhone, 40)) {
+    throw new Error("Name and phone are required.");
   }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    throw new Error("A valid email address is required.");
+  }
+
+  return {
+    // Public callers can only create New requests. RLS repeats this validation.
+    status: STATUS.NEW,
+    client_name: cleanText(data.clientName, 120),
+    client_phone: cleanText(data.clientPhone, 40),
+    client_email: email,
+    pickup: cleanText(data.pickup, 300),
+    dropoff: cleanText(data.dropoff, 300),
+    date: cleanText(data.date, 10),
+    time: cleanText(data.time, 8),
+    vehicle: cleanText(data.vehicle, 120),
+    passengers: cleanNumber(data.passengers, 1, 50),
+    luggage: cleanNumber(data.luggage, 0, 100),
+    distance_km: cleanNumber(data.distanceKm, 0, 5000),
+    duration_text: cleanText(data.durationText, 80),
+    price_mad: cleanNumber(data.priceMad, 0, 1000000),
+    price_eur: cleanNumber(data.priceEur, 0, 100000),
+    message: cleanText(data.message, 5000),
+  };
+}
+
+export async function getReservationsPage({ page = 0, pageSize = PAGE_SIZE } = {}) {
+  const safePage = Math.max(0, Math.trunc(Number(page) || 0));
+  const safeSize = Math.min(100, Math.max(10, Math.trunc(Number(pageSize) || PAGE_SIZE)));
+  const from = safePage * safeSize;
+  const to = from + safeSize - 1;
+
+  const { data, count, error } = await getSupabase()
+    .from(TABLE)
+    .select(SELECT_COLUMNS, { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(from, to);
   if (error) throw error;
-  return fromRow(rows);
+  return { items: (data || []).map(fromRow), total: count || 0, page: safePage, pageSize: safeSize };
+}
+
+export async function getReservationAnalytics() {
+  const { data, error } = await getSupabase().rpc("get_admin_reservation_analytics");
+  if (error) throw error;
+  return data;
+}
+
+export async function addReservation(data) {
+  const payload = publicReservationRow(data);
+  const request = getSupabase().from(TABLE).insert(payload);
+  const generatedUrl = request.url?.toString() || "Unavailable";
+  const { data: responseData, error, status, statusText } = await request;
+
+  if (error) {
+    const responseBody = error;
+    console.groupCollapsed("[AFSAHI] Reservation insert failed");
+    console.error("Request payload:", payload);
+    console.error("Generated URL:", generatedUrl);
+    console.error("Supabase error:", error);
+    console.error("HTTP status:", status, statusText);
+    console.error("Response body:", responseBody);
+    console.groupEnd();
+
+    const insertError = new Error(error.message || "Supabase reservation insert failed.", {
+      cause: error,
+    });
+    insertError.name = "ReservationInsertError";
+    insertError.requestPayload = payload;
+    insertError.generatedUrl = generatedUrl;
+    insertError.status = status;
+    insertError.statusText = statusText;
+    insertError.responseBody = responseBody;
+    throw insertError;
+  }
+
+  return responseData;
 }
 
 export async function updateReservationStatus(id, status) {
-  const { error } = await supabase.from(TABLE).update({ status }).eq("id", id);
+  if (!UUID.test(id) || !ALLOWED_STATUS.has(status)) throw new Error("Invalid reservation update.");
+  const { error } = await getSupabase().from(TABLE).update({ status }).eq("id", id);
   if (error) throw error;
 }
 
 export async function deleteReservation(id) {
-  const { error } = await supabase.from(TABLE).delete().eq("id", id);
+  if (!UUID.test(id)) throw new Error("Invalid reservation id.");
+  const { error } = await getSupabase().from(TABLE).delete().eq("id", id);
   if (error) throw error;
 }
 
-// ── CSV export (from Supabase data) ─────────────────────────────────────────
 export function reservationsToCSV(list) {
   const cols = [
-    ["Created", (r) => r.createdAt],
-    ["Status", (r) => r.status],
-    ["Client name", (r) => r.clientName],
-    ["Client phone", (r) => r.clientPhone],
-    ["Client email", (r) => r.clientEmail],
-    ["Pickup", (r) => r.pickup],
-    ["Drop-off", (r) => r.dropoff],
-    ["Date", (r) => r.date],
-    ["Time", (r) => r.time],
-    ["Vehicle", (r) => r.vehicle],
-    ["Passengers", (r) => r.passengers],
-    ["Luggage", (r) => r.luggage],
-    ["Distance (km)", (r) => r.distanceKm],
-    ["Duration", (r) => r.durationText],
-    ["Price (MAD)", (r) => r.priceMad],
-    ["Price (EUR)", (r) => r.priceEur],
-    ["WhatsApp message", (r) => r.message],
+    ["Created", (r) => r.createdAt], ["Status", (r) => r.status],
+    ["Client name", (r) => r.clientName], ["Client phone", (r) => r.clientPhone],
+    ["Client email", (r) => r.clientEmail], ["Pickup", (r) => r.pickup],
+    ["Drop-off", (r) => r.dropoff], ["Date", (r) => r.date], ["Time", (r) => r.time],
+    ["Vehicle", (r) => r.vehicle], ["Passengers", (r) => r.passengers],
+    ["Luggage", (r) => r.luggage], ["Distance (km)", (r) => r.distanceKm],
+    ["Duration", (r) => r.durationText], ["Price (MAD)", (r) => r.priceMad],
+    ["Price (EUR)", (r) => r.priceEur], ["WhatsApp message", (r) => r.message],
   ];
-  const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const head = cols.map(([h]) => esc(h)).join(",");
-  const rows = list.map((r) => cols.map(([, fn]) => esc(fn(r))).join(","));
-  return [head, ...rows].join("\n");
+  const escape = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+  return [
+    cols.map(([heading]) => escape(heading)).join(","),
+    ...list.map((row) => cols.map(([, read]) => escape(read(row))).join(",")),
+  ].join("\n");
 }
 
-export async function downloadCSV(list) {
-  const data = list || (await getReservations());
-  const blob = new Blob(["﻿" + reservationsToCSV(data)], { type: "text/csv;charset=utf-8;" });
+export function downloadCSV(list) {
+  const blob = new Blob(["\ufeff" + reservationsToCSV(list)], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `afsahi-reservations-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `afsahi-reservations-${new Date().toISOString().slice(0, 10)}.csv`;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }

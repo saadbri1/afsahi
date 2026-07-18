@@ -39,6 +39,7 @@ export default function ExperienceSection() {
     <section ref={sectionRef} className="relative h-[70vh] min-h-[500px] overflow-hidden">
       <img ref={imgRef} src={IMAGES.interior}
         alt="Luxury vehicle interior — immaculate cream leather, ambient lighting"
+        width="1600" height="905" loading="lazy" decoding="async"
         className="absolute inset-0 h-[120%] w-full -translate-y-[10%] object-cover" />
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(16,13,9,0.85)_0%,rgba(16,13,9,0.5)_50%,rgba(16,13,9,0.2)_100%)]" />
       <div ref={textRef} className="absolute inset-0 flex items-center opacity-0">

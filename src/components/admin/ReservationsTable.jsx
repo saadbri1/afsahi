@@ -1,9 +1,9 @@
 /* Admin · Reservations — filterable professional table with row actions.
    Data comes from Supabase (src/lib/reservations.js) — live, cross-device. */
 import { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, CheckCircle2, XCircle, Trash2, MessageCircle, Download, Inbox, X, FilterX,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { STATUS, downloadCSV } from "../../lib/reservations.js";
 import { fmtMAD } from "../../lib/analytics.js";
@@ -17,7 +17,9 @@ const STATUS_STYLE = {
 
 const shortPlace = (s) => (s || "—").split(",")[0].trim();
 
-export default function ReservationsTable({ items, onStatus, onDelete }) {
+export default function ReservationsTable({
+  items, onStatus, onDelete, page = 0, pageSize = 25, total = 0, onPage,
+}) {
   const [status, setStatus] = useState("all");
   const [vehicle, setVehicle] = useState("all");
   const [from, setFrom] = useState("");
@@ -64,7 +66,7 @@ export default function ReservationsTable({ items, onStatus, onDelete }) {
         )}
         <button onClick={() => downloadCSV(items)}
           className="ml-auto inline-flex items-center gap-2 rounded-xl bg-champ px-4 py-2.5 text-[0.76rem] font-semibold text-white transition-colors hover:bg-champ-dk">
-          <Download size={14} /> Export CSV
+          <Download size={14} /> Export page CSV
         </button>
       </div>
 
@@ -113,7 +115,14 @@ export default function ReservationsTable({ items, onStatus, onDelete }) {
                     </p>
                   </Td>
                   <Td>{r.date || "—"}<span className="text-muted"> · {r.time || "—"}</span></Td>
-                  <Td>{r.vehicle || "—"}</Td>
+                  <Td>
+                    <p>{r.vehicle || "—"}</p>
+                    {(r.passengers != null || r.luggage != null) && (
+                      <p className="text-[0.66rem] text-muted">
+                        {r.passengers ?? "—"} pax · {r.luggage ?? "—"} bags
+                      </p>
+                    )}
+                  </Td>
                   <Td className="text-right">{r.distanceKm != null ? `${r.distanceKm} km` : "—"}</Td>
                   <Td className="text-right">{r.durationText || "—"}</Td>
                   <Td className="text-right">
@@ -138,23 +147,36 @@ export default function ReservationsTable({ items, onStatus, onDelete }) {
           </table>
         </div>
       )}
-      <p className="text-right text-[0.68rem] text-muted">{filtered.length} of {items.length} reservations</p>
+      <div className="flex flex-wrap items-center justify-between gap-3 text-[0.7rem] text-muted">
+        <p>
+          Showing {items.length ? page * pageSize + 1 : 0}–{Math.min((page + 1) * pageSize, total)} of {total}
+          {hasFilters ? ` · ${filtered.length} match on this page` : ""}
+        </p>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => onPage?.(Math.max(0, page - 1))} disabled={page === 0}
+            className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-line px-3 py-2 font-semibold text-ink transition-colors hover:border-champ disabled:cursor-not-allowed disabled:opacity-40">
+            <ChevronLeft size={14} /> Previous
+          </button>
+          <span className="min-w-16 text-center">Page {page + 1}</span>
+          <button type="button" onClick={() => onPage?.(page + 1)} disabled={(page + 1) * pageSize >= total}
+            className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-line px-3 py-2 font-semibold text-ink transition-colors hover:border-champ disabled:cursor-not-allowed disabled:opacity-40">
+            Next <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
 
       {/* WhatsApp message modal */}
-      <AnimatePresence>
-        {msgOf && (
-          <motion.div key="modal"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      {msgOf && (
+          <div
+            role="dialog" aria-modal="true" aria-labelledby="reservation-message-title"
             className="fixed inset-0 z-[80] grid place-items-center bg-noir/60 p-5 backdrop-blur-sm"
             onClick={() => setMsgOf(null)}>
-            <motion.div
-              initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.98 }} transition={{ duration: 0.25 }}
+            <div
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-[480px] rounded-2xl border border-champ/25 bg-surface p-6 shadow-[0_40px_90px_-30px_rgba(0,0,0,0.5)]">
+              className="admin-enter w-full max-w-[480px] rounded-2xl border border-champ/25 bg-surface p-6 shadow-[0_40px_90px_-30px_rgba(0,0,0,0.5)]">
               <div className="mb-3 flex items-center justify-between">
-                <h4 className="text-[0.95rem] font-semibold text-ink">Client WhatsApp message</h4>
-                <button onClick={() => setMsgOf(null)} className="grid h-8 w-8 place-items-center rounded-full text-muted hover:bg-line/60">
+                <h4 id="reservation-message-title" className="text-[0.95rem] font-semibold text-ink">Client WhatsApp message</h4>
+                <button onClick={() => setMsgOf(null)} aria-label="Close message" autoFocus className="grid h-9 w-9 place-items-center rounded-full text-muted hover:bg-line/60">
                   <X size={15} />
                 </button>
               </div>
@@ -165,10 +187,9 @@ export default function ReservationsTable({ items, onStatus, onDelete }) {
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-5 py-3 text-[0.8rem] font-semibold text-white transition-colors hover:bg-[#1da851]">
                 <MessageCircle size={15} /> Open in WhatsApp
               </a>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </div>
+          </div>
+      )}
     </div>
   );
 }

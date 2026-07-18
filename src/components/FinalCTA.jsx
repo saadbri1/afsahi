@@ -47,6 +47,7 @@ export default function FinalCTA({ onSeePrices }) {
       <div className="wrap">
         <div className="relative overflow-hidden rounded-3xl">
           <img ref={imgRef} src={IMAGES.sectionCta} alt="Black Mercedes-Benz S-Class with the rear door open in front of a modern hotel"
+            width="1600" height="1068" loading="lazy" decoding="async"
             className="absolute inset-0 h-[120%] w-full -translate-y-[10%] object-cover object-[58%_55%] opacity-65" />
           <div className="absolute inset-0 bg-[linear-gradient(110deg,rgba(16,13,9,0.96)_30%,rgba(16,13,9,0.65)_70%,rgba(16,13,9,0.45))]" />
           <div ref={textRef} className="relative px-[clamp(2rem,6vw,5rem)] py-[clamp(3.5rem,7vw,6rem)] opacity-0">

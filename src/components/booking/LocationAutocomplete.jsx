@@ -15,6 +15,7 @@ export default function LocationAutocomplete({
   onTextChange,   // (rawText) => void — raw input text for manual-entry fallback
   variant = "from",
   dropUp = false,
+  className = "",
 }) {
   const [query, setQuery] = useState(value?.description || "");
   const [suggestions, setSuggestions] = useState([]);
@@ -38,6 +39,11 @@ export default function LocationAutocomplete({
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  useEffect(() => () => {
+    clearTimeout(debounceRef.current);
+    abortRef.current?.abort();
   }, []);
 
   const fetchSuggestions = useCallback(async (input) => {
@@ -95,7 +101,7 @@ export default function LocationAutocomplete({
   };
 
   return (
-    <div ref={wrapRef} className="relative">
+    <div ref={wrapRef} className={`relative min-w-0 ${className}`}>
       <label
         className={`flex items-center gap-3 rounded-xl border bg-white px-4 py-3 transition-colors duration-300 ${
           value ? "border-champ" : "border-line focus-within:border-champ"
@@ -118,6 +124,7 @@ export default function LocationAutocomplete({
             aria-expanded={open}
             aria-controls={listId}
             aria-autocomplete="list"
+            aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
             className="w-full bg-transparent text-[0.9rem] text-ink outline-none placeholder:text-muted/60 [color-scheme:light]"
           />
         </span>
@@ -128,13 +135,14 @@ export default function LocationAutocomplete({
         <ul
           id={listId}
           role="listbox"
-          className={`absolute left-0 right-0 z-50 max-h-72 overflow-auto rounded-xl border border-champ/25 bg-noir/95 py-1.5 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.7)] backdrop-blur-xl ${
+          className={`absolute left-0 right-0 z-50 max-h-[min(18rem,50vh)] overflow-auto rounded-xl border border-champ/25 bg-noir/95 py-1.5 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.7)] backdrop-blur-xl ${
             dropUp ? "bottom-full mb-2" : "mt-2"
           }`}
         >
           {suggestions.map((s, i) => (
             <li
               key={s.placeId}
+              id={`${listId}-${i}`}
               role="option"
               aria-selected={i === active}
               onMouseEnter={() => setActive(i)}

@@ -5,9 +5,9 @@ import { buildWhatsAppUrl } from "../lib/whatsapp.js";
 
 // ⬇️ Chauffeur roster — portrait + role + vehicle. imgPos tunes the 4/5 crop.
 const CHAUFFEURS = [
-  { name: "Soufian", role: "Senior Chauffeur",     vehicle: "Mercedes-Benz E-Class", img: "/images/chauffeurs/soufian.jpg", imgPos: "50% 22%" },
-  { name: "Mohamed", role: "Executive Chauffeur",  vehicle: "Mercedes-Benz S-Class", img: "/images/chauffeurs/mohamed.jpg", imgPos: "50% 20%" },
-  { name: "Anas",    role: "Luxury Van Chauffeur", vehicle: "Mercedes-Benz V-Class", img: "/images/chauffeurs/anas.jpg",    imgPos: "50% 16%" },
+  { name: "Soufian", role: "Senior Chauffeur",     vehicle: "Mercedes-Benz E-Class", img: "/images/optimized/chauffeurs/soufian.webp", width: 900, height: 720, imgPos: "50% 22%" },
+  { name: "Mohamed", role: "Executive Chauffeur",  vehicle: "Mercedes-Benz S-Class", img: "/images/optimized/chauffeurs/mohamed.webp", width: 900, height: 720, imgPos: "50% 20%" },
+  { name: "Anas",    role: "Luxury Van Chauffeur", vehicle: "Mercedes-Benz V-Class", img: "/images/optimized/chauffeurs/anas.webp", width: 825, height: 1100, imgPos: "50% 16%" },
 ];
 
 function WaGlyph() {
@@ -43,7 +43,7 @@ export default function Chauffeurs() {
                 className="group overflow-hidden rounded-3xl border border-line bg-surface shadow-[0_2px_16px_-6px_rgba(21,18,12,0.10)] transition-all duration-500 ease-luxe hover:-translate-y-1.5 hover:border-champ/40 hover:shadow-[0_30px_60px_-30px_rgba(21,18,12,0.30)]">
                 {/* portrait — identical 4/5 crop for every card */}
                 <div className="relative aspect-[4/5] overflow-hidden">
-                  <img src={c.img} alt={`${c.name}, ${c.role} at AFSAHI`}
+                  <img src={c.img} alt={`${c.name}, ${c.role} at AFSAHI`} width={c.width} height={c.height}
                     loading="lazy" draggable={false}
                     style={{ objectPosition: c.imgPos }}
                     className="h-full w-full object-cover transition-transform duration-[1100ms] ease-luxe group-hover:scale-[1.04]" />

@@ -77,26 +77,28 @@ export default function BookingWidget({ onSeePrices }) {
       </div>
 
       {/* fields — one row on desktop, stacked on mobile */}
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-[1.4fr_1.4fr_1fr_1fr_auto] md:items-stretch">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-[1.4fr_1.4fr_1fr_1fr_auto] md:items-stretch">
         <LocationAutocomplete
+          className="col-span-2 md:col-span-1"
           label={b.from} placeholder={b.fromPh} variant="from"
           value={pickup} onSelect={setPickup} onTextChange={setPickupText} dropUp
         />
         <LocationAutocomplete
+          className="col-span-2 md:col-span-1"
           label={b.to} placeholder={b.toPh} variant="to"
           value={dropoff} onSelect={setDropoff} onTextChange={setDropoffText} dropUp
         />
         <Field icon={<Calendar size={15} />} label={b.date} type="date" value={date} onChange={setDate} />
         <Field icon={<Clock size={15} />} label={b.time} type="time" value={time} onChange={setTime} />
         <button type="submit" data-cursor disabled={checking}
-          className="shimmer relative flex items-center justify-center gap-2 rounded-xl bg-champ px-6 py-3 text-[0.78rem] font-semibold text-white transition-all duration-500 ease-luxe hover:bg-champ-dk disabled:opacity-70 md:min-w-[8.5rem]">
+          className="shimmer relative col-span-2 flex min-h-12 items-center justify-center gap-2 rounded-xl bg-champ px-6 py-3 text-[0.78rem] font-semibold text-white transition-all duration-500 ease-luxe hover:bg-champ-dk disabled:opacity-70 md:col-span-1 md:min-w-[8.5rem]">
           {checking && <Loader2 size={14} className="animate-spin" />}
           {checking ? "Checking…" : b.cta}
         </button>
       </div>
 
       {/* reassurance / inline validation + whatsapp */}
-      <div className="mt-3 flex flex-col items-center justify-between gap-2 px-1 sm:flex-row">
+      <div className="mt-3 flex min-h-7 flex-col items-center justify-between gap-2 px-1 sm:flex-row">
         <p className={`text-[0.72rem] ${error ? "font-medium text-[#b4452f]" : "text-muted"}`}>
           {error || b.reassure}
         </p>

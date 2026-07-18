@@ -6,29 +6,33 @@
   --champ: #a9823f;
   --champ-dk: #7e6024;
   --line: #e7decc;
+  --motion-fast: 180ms;
+  --motion-base: 620ms;
+  --motion-slow: 920ms;
+  --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-refined: cubic-bezier(0.22, 1, 0.36, 1);
+  --header-offset: 76px;
 }
 
 * { margin: 0; box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; }
-html.lenis, html.lenis body { height: auto; }
-.lenis.lenis-smooth { scroll-behavior: auto !important; }
-.lenis.lenis-stopped { overflow: hidden; }
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-top: var(--header-offset);
+}
 
 body {
   @apply bg-paper text-body font-sans font-normal antialiased;
   line-height: 1.65;
   overflow-x: hidden;
   text-rendering: optimizeLegibility;
-  cursor: none;
-}
-@media (hover: none), (max-width: 860px) {
-  body { cursor: auto; }
-  a, button, [data-cursor], [role="button"] { cursor: pointer; }
 }
 
 ::selection { background: var(--champ); color: #fff; }
 img { display: block; max-width: 100%; }
+button, a, select, input, textarea { -webkit-tap-highlight-color: transparent; }
+button, a { touch-action: manipulation; }
+section[id], form[id] { scroll-margin-top: var(--header-offset); }
 
 /* Headlines — single grotesk, calm, sentence case. Tight, large, restrained. */
 h1, h2, h3, h4 {
@@ -57,21 +61,49 @@ h1 { font-weight: 600; letter-spacing: -0.03em; }
   .eyebrow--ondark { @apply text-champ-lt; }
 }
 
-/* subtle shine sweep on primary CTAs */
+/* Primary CTA sheen runs only on interaction; no permanent animation loop. */
 .shimmer { position: relative; overflow: hidden; isolation: isolate; }
 .shimmer::before {
   content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; z-index: 1;
   background: linear-gradient(105deg, transparent, rgba(255,255,255,0.5), transparent);
-  transform: skewX(-18deg); animation: shimmer 5s ease-in-out infinite;
+  transform: skewX(-18deg);
+  transition: left 720ms var(--ease-premium);
+}
+.shimmer:hover::before, .shimmer:focus-visible::before { left: 130%; }
+
+.skip-link {
+  position: fixed; left: 1rem; top: 0; z-index: 200;
+  transform: translateY(-120%);
+  border-radius: 0 0 0.5rem 0.5rem;
+  background: var(--champ-dk); color: #fff;
+  padding: 0.7rem 1rem; font-size: 0.8rem; font-weight: 700;
+  transition: transform var(--motion-fast) ease;
+}
+.skip-link:focus { transform: translateY(0); }
+
+@keyframes navEnter { from { opacity: 0; transform: translateY(-18px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes menuEnter { from { opacity: 0; transform: translateX(3%); } to { opacity: 1; transform: translateX(0); } }
+@keyframes adminEnter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes whatsappPulse { 0% { transform: scale(1); opacity: .55; } 70%,100% { transform: scale(1.55); opacity: 0; } }
+@keyframes scrollTrace { 0% { transform: translateY(-100%); } 100% { transform: translateY(180%); } }
+
+.nav-enter { animation: navEnter 800ms var(--ease-premium) both; }
+.mobile-menu-enter { animation: menuEnter 420ms var(--ease-premium) both; }
+.admin-enter { animation: adminEnter 520ms var(--ease-premium) both; }
+.whatsapp-pulse { animation: whatsappPulse 2.4s ease-out 2; }
+.hero-scroll-line::after {
+  content: ""; position: absolute; inset: 0; background: var(--champ);
+  animation: scrollTrace 1.8s var(--ease-premium) 3;
 }
 
-/* hero load entrance — CSS-driven so it resolves even when the tab is hidden */
-@keyframes heroRise { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-.hero-rise { opacity: 0; animation: heroRise 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@media (max-width: 767px) {
+  :root { --header-offset: 68px; }
+  input, select, textarea { font-size: 16px; }
+}
 
 @media (prefers-reduced-motion: reduce) {
-  * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
-  body { cursor: auto; }
-  a, button, [data-cursor], [role="button"] { cursor: pointer; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  html { scroll-behavior: auto !important; }
   .shimmer::before { display: none; }
+  .hero-light, .whatsapp-pulse, .hero-scroll-line::after { display: none; }
 }

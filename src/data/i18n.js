@@ -91,11 +91,6 @@ export const I18N = {
       title: "Trusted across Morocco",
       sub: "Hotels, airlines and corporate partners rely on Afsahi to move the people who matter to them.",
     },
-    fleet: {
-      kicker: "The fleet", title: "Choose your experience.",
-      sub: "A late-model Mercedes-Benz fleet for every journey and group.",
-      pax: "guests", bags: "bags",
-    },
     cta: {
       title: "Ready when you are.",
       sub: "Tell us where and when. We'll handle the rest — quietly, precisely, on time.",
@@ -214,11 +209,6 @@ export const I18N = {
     partners: {
       title: "Reconnu à travers le Maroc",
       sub: "Hôtels, compagnies aériennes et partenaires corporate font confiance à Afsahi pour leurs déplacements.",
-    },
-    fleet: {
-      kicker: "La flotte", title: "Choisissez votre expérience.",
-      sub: "Une flotte Mercedes-Benz récente pour chaque trajet et chaque groupe.",
-      pax: "passagers", bags: "bagages",
     },
     booking: {
       back: "Retour", choose: "Choisissez votre expérience", details: "détails",

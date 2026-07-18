@@ -1,6 +1,6 @@
 /* "Trusted by those who don't compromise." — rotating testimonials */
-import { useState, useEffect, useRef } from "react";
-import { gsap } from "gsap";
+import { useState, useRef } from "react";
+import { gsap, MOTION } from "../lib/motion.js";
 import { Star } from "lucide-react";
 import { useLang } from "../context/LanguageContext.jsx";
 import { useScrollReveal } from "../hooks/useScrollReveal.js";
@@ -17,26 +17,18 @@ export default function Reviews() {
   const go = (i) => {
     if (reduce) { setCurrent(i); return; }
     gsap.to(quoteRef.current, {
-      opacity: 0, y: 10, duration: 0.25, ease: "power2.in",
+      autoAlpha: 0, x: -10, duration: MOTION.duration.fast, ease: "power2.in",
       onComplete: () => {
         setCurrent(i);
-        gsap.fromTo(quoteRef.current, { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" });
+        gsap.fromTo(quoteRef.current, { autoAlpha: 0, x: 10 }, { autoAlpha: 1, x: 0, duration: MOTION.duration.base, ease: MOTION.ease.premiumOut });
       },
     });
   };
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const next = (current + 1) % r.items.length;
-      go(next);
-    }, 6000);
-    return () => clearInterval(interval);
-  }, [current, r.items.length]);
-
   const item = r.items[current];
 
   return (
-    <section className="section bg-paper">
+    <section id="reviews" className="section bg-paper">
       <div className="wrap">
         <div ref={headRef} className="mb-16 text-center">
           <span data-rv-child className="eyebrow eyebrow--center mb-4 inline-flex">{r.kicker}</span>

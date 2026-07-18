@@ -5,7 +5,7 @@
 // modal (full recap) → Confirm → save to Supabase + open WhatsApp + success.
 // The button stays disabled until route, price AND client details are valid.
 // ─────────────────────────────────────────────────────────────────────────────
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { UserRound, Phone, Mail, CheckCircle2, X } from "lucide-react";
 import { calculatePrice, convertToEuro, formatCurrency } from "../../data/bookingPricing.js";
@@ -17,7 +17,8 @@ function Row({ label, value, strong }) {
     <div className="flex items-baseline justify-between gap-4 py-1.5">
       <span className="text-[0.74rem] uppercase tracking-[0.1em] text-muted">{label}</span>
       <span className={`min-w-0 truncate text-right text-[0.85rem] ${strong ? "font-semibold text-ink" : "text-body"}`}>
-        {value || "—"}
+        {/* 0 is a valid value (zero bags) — don't let it fall through to "—" */}
+        {value === 0 ? 0 : value || "—"}
       </span>
     </div>
   );
@@ -35,12 +36,25 @@ export default function BookingSummary({
   durationText,
   routeStatus,
   vehicle,
+  passengers = 1,
+  bags = 0,
 }) {
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [modal, setModal] = useState(false);     // confirmation modal
   const [success, setSuccess] = useState(false); // post-confirm success state
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
+  useEffect(() => {
+    if (!modal) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && !saving) closeModal();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [modal, saving]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const priceMad = vehicle ? calculatePrice(distanceKm, vehicle.pricePerKm) : null;
   const priceEur = convertToEuro(priceMad);
@@ -76,38 +90,50 @@ export default function BookingSummary({
       priceEur,
       date,
       time,
-      passengers: vehicle?.passengers,
-      luggage: vehicle?.luggage,
+      passengers,
+      luggage: bags,
     });
 
   // Runs ONLY after the client presses "Confirm reservation" in the modal.
-  const confirmReservation = () => {
+  const confirmReservation = async () => {
+    if (saving) return;
     const message = buildMessage();
-    // Save to Supabase (fire-and-forget: a network hiccup must never block the
-    // WhatsApp handoff, and awaiting would risk popup blockers).
-    addReservation({
-      clientName: clientName.trim(),
-      clientPhone: clientPhone.trim(),
-      clientEmail: clientEmail.trim(),
-      pickup: pickupLabel,
-      dropoff: dropoffLabel,
-      date,
-      time,
-      vehicle: vehicle?.name,
-      passengers: vehicle?.passengers,
-      luggage: vehicle?.luggage,
-      distanceKm,
-      durationText,
-      priceMad,
-      priceEur,
-      message,
-    }).catch((err) => console.error("[AFSAHI] Failed to save reservation:", err));
-
-    window.open(buildWhatsAppUrl(message), "_blank", "noopener,noreferrer");
-    setSuccess(true);
+    setSaving(true);
+    setSubmitError("");
+    try {
+      await addReservation({
+        clientName: clientName.trim(),
+        clientPhone: clientPhone.trim(),
+        clientEmail: clientEmail.trim(),
+        pickup: pickupLabel,
+        dropoff: dropoffLabel,
+        date,
+        time,
+        vehicle: vehicle?.name,
+        // the customer's requested counts — NOT the vehicle's capacity
+        passengers,
+        luggage: bags,
+        distanceKm,
+        durationText,
+        priceMad,
+        priceEur,
+        message,
+      });
+      const whatsappUrl = buildWhatsAppUrl(message);
+      const whatsappWindow = window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+      if (!whatsappWindow) {
+        window.location.assign(whatsappUrl);
+      }
+      setSuccess(true);
+    } catch (error) {
+      console.error("[AFSAHI] Failed to save reservation:", error);
+      setSubmitError("We couldn't save the request. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const closeModal = () => { setModal(false); setSuccess(false); };
+  const closeModal = () => { if (!saving) { setModal(false); setSuccess(false); setSubmitError(""); } };
 
   return (
     <div className="rounded-2xl border border-line bg-surface p-5 shadow-[0_2px_16px_-8px_rgba(21,18,12,0.12)]">
@@ -120,6 +146,8 @@ export default function BookingSummary({
         <Row label="Time" value={time} />
         <Row label="Distance" value={distanceKm != null ? `${distanceKm} km` : routeStatus === "error" ? "Unavailable" : "Calculating…"} />
         <Row label="Duration" value={durationText || (routeStatus === "error" ? "Unavailable" : "Calculating…")} />
+        <Row label="Passengers" value={passengers} />
+        <Row label="Bags" value={bags} />
       </div>
 
       {/* Premium dark price card — MAD large/bold/white, EUR smaller/gold */}
@@ -142,12 +170,12 @@ export default function BookingSummary({
       {/* REQUIRED client details */}
       <div className="mt-5 space-y-2.5">
         <p className="text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-muted">Your details</p>
-        <ClientField icon={<UserRound size={15} />} type="text" placeholder="Full name"
-          value={clientName} onChange={setClientName} autoComplete="name" />
-        <ClientField icon={<Phone size={15} />} type="tel" placeholder="Phone / WhatsApp number"
-          value={clientPhone} onChange={setClientPhone} autoComplete="tel" />
-        <ClientField icon={<Mail size={15} />} type="email" placeholder="Email address"
-          value={clientEmail} onChange={setClientEmail} autoComplete="email" />
+        <ClientField label="Full name" icon={<UserRound size={15} />} type="text" placeholder="Full name"
+          value={clientName} onChange={setClientName} autoComplete="name" invalid={Boolean(clientName) && clientName.trim().length < 2} />
+        <ClientField label="Phone or WhatsApp number" icon={<Phone size={15} />} type="tel" placeholder="Phone / WhatsApp number"
+          value={clientPhone} onChange={setClientPhone} autoComplete="tel" invalid={Boolean(clientPhone) && !validPhone(clientPhone)} />
+        <ClientField label="Email address" icon={<Mail size={15} />} type="email" placeholder="Email address"
+          value={clientEmail} onChange={setClientEmail} autoComplete="email" invalid={Boolean(clientEmail) && !validEmail(clientEmail)} />
       </div>
 
       <motion.button
@@ -170,6 +198,7 @@ export default function BookingSummary({
         {modal && (
           <motion.div key="confirm"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            role="dialog" aria-modal="true" aria-labelledby="booking-confirm-title"
             className="fixed inset-0 z-[90] grid place-items-center overflow-y-auto bg-noir/65 p-4 backdrop-blur-sm"
             onClick={closeModal}>
             <motion.div
@@ -180,8 +209,8 @@ export default function BookingSummary({
               {!success ? (
                 <>
                   <div className="mb-4 flex items-center justify-between">
-                    <h4 className="text-[1.1rem] font-semibold text-ink">Confirm your reservation</h4>
-                    <button onClick={closeModal} className="grid h-8 w-8 place-items-center rounded-full text-muted hover:bg-line/60">
+                    <h4 id="booking-confirm-title" className="text-[1.1rem] font-semibold text-ink">Confirm your reservation</h4>
+                    <button onClick={closeModal} aria-label="Close confirmation" autoFocus className="grid h-9 w-9 place-items-center rounded-full text-muted hover:bg-line/60">
                       <X size={15} />
                     </button>
                   </div>
@@ -194,6 +223,8 @@ export default function BookingSummary({
                     <Row label="Date" value={date} />
                     <Row label="Time" value={time} />
                     <Row label="Vehicle" value={vehicle?.name} />
+                    <Row label="Passengers" value={passengers} />
+                    <Row label="Bags" value={bags} />
                     <Row label="Distance" value={distanceKm != null ? `${distanceKm} km` : "—"} />
                     <Row label="Duration" value={durationText} />
                     <Row label="Final price" value={priceMad != null ? `${formatCurrency(priceMad)} · ≈ €${priceEur.toFixed(2)}` : "—"} strong />
@@ -203,11 +234,14 @@ export default function BookingSummary({
                       className="flex-1 rounded-xl border border-line px-5 py-3 text-[0.8rem] font-semibold text-body transition-colors hover:border-ink hover:text-ink">
                       Cancel
                     </button>
-                    <motion.button onClick={confirmReservation}
+                    <motion.button onClick={confirmReservation} disabled={saving}
                       whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                      className="flex-[1.4] rounded-xl bg-champ px-5 py-3 text-[0.8rem] font-semibold text-white transition-colors hover:bg-champ-dk">
-                      Confirm reservation
+                      className="flex-[1.4] rounded-xl bg-champ px-5 py-3 text-[0.8rem] font-semibold text-white transition-colors hover:bg-champ-dk disabled:cursor-wait disabled:opacity-60">
+                      {saving ? "Saving securely…" : "Confirm reservation"}
                     </motion.button>
+                  </div>
+                  <div className="min-h-8 pt-2" aria-live="polite">
+                    {submitError && <p className="text-center text-[0.75rem] font-medium text-red-700">{submitError}</p>}
                   </div>
                 </>
               ) : (
@@ -237,12 +271,14 @@ export default function BookingSummary({
   );
 }
 
-function ClientField({ icon, type, placeholder, value, onChange, autoComplete }) {
+function ClientField({ label, icon, type, placeholder, value, onChange, autoComplete, invalid }) {
   return (
-    <label className="flex items-center gap-3 rounded-xl border border-line bg-paper px-4 py-3 transition-colors duration-300 focus-within:border-champ">
+    <label className={`flex items-center gap-3 rounded-xl border bg-paper px-4 py-3 transition-colors duration-300 focus-within:border-champ ${invalid ? "border-red-500" : "border-line"}`}>
+      <span className="sr-only">{label}</span>
       <span className="text-champ">{icon}</span>
       <input
         type={type} value={value} placeholder={placeholder} autoComplete={autoComplete}
+        aria-invalid={invalid || undefined}
         onChange={(e) => onChange(e.target.value)}
         className="w-full bg-transparent text-[0.86rem] text-ink outline-none placeholder:text-muted/60"
       />

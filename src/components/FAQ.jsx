@@ -1,7 +1,6 @@
 /* "Questions, answered." — light accordion */
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
 import { useLang } from "../context/LanguageContext.jsx";
 import { useScrollReveal } from "../hooks/useScrollReveal.js";
 
@@ -34,18 +33,11 @@ export default function FAQ() {
                     <Plus size={15} strokeWidth={1.8} />
                   </span>
                 </button>
-                <AnimatePresence initial={false}>
-                  {open && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
-                      className="overflow-hidden">
-                      <p className="max-w-[58ch] pb-6 pr-10 text-[0.96rem] leading-relaxed text-body">{item.a}</p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <div className={`grid transition-[grid-template-rows,opacity] duration-500 ease-luxe ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                  <div className="overflow-hidden">
+                    <p className="max-w-[58ch] pb-6 pr-10 text-[0.96rem] leading-relaxed text-body">{item.a}</p>
+                  </div>
+                </div>
               </li>
             );
           })}

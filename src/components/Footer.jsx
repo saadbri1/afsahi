@@ -17,6 +17,14 @@ export default function Footer() {
     { label: "Facebook", href: FACEBOOK_URL, icon: <Facebook size={15} /> },
     { label: "WhatsApp", href: waHref, icon: <MessageCircle size={15} /> },
   ];
+  const serviceLinks = f.serviceLinks.map((label, index) => ({ label, href: index < 2 ? "#services" : "#cities" }));
+  const cityLinks = f.cityLinks.map((label) => ({ label, href: "#cities" }));
+  const companyLinks = [
+    { label: f.companyLinks[0], href: "#why-afsahi" },
+    { label: f.companyLinks[1], href: "#reviews" },
+    { label: f.companyLinks[2], href: "#faq" },
+    { label: f.companyLinks[3], href: `mailto:${EMAIL}?subject=AFSAHI careers` },
+  ];
 
   return (
     <footer className="bg-noir pt-20">
@@ -40,13 +48,13 @@ export default function Footer() {
             </div>
           </div>
           <FooterCol title={f.services}>
-            {f.serviceLinks.map((l) => <FLink key={l}>{l}</FLink>)}
+            {serviceLinks.map((link) => <FLink key={link.label} href={link.href}>{link.label}</FLink>)}
           </FooterCol>
           <FooterCol title={f.cities}>
-            {f.cityLinks.map((l) => <FLink key={l}>{l}</FLink>)}
+            {cityLinks.map((link) => <FLink key={link.label} href={link.href}>{link.label}</FLink>)}
           </FooterCol>
           <FooterCol title={f.company}>
-            {f.companyLinks.map((l) => <FLink key={l}>{l}</FLink>)}
+            {companyLinks.map((link) => <FLink key={link.label} href={link.href}>{link.label}</FLink>)}
           </FooterCol>
           <FooterCol title={f.contact}>
             <ContactLink href={`tel:${PHONE_TEL}`}><Phone size={13} /> {PHONE_DISPLAY}</ContactLink>
@@ -81,9 +89,9 @@ function FooterCol({ title, children }) {
   );
 }
 
-function FLink({ children }) {
+function FLink({ children, href }) {
   return (
-    <a href="#" className="mb-2.5 block text-[0.88rem] text-cream/55 transition-colors duration-300 hover:text-cream">
+    <a href={href} className="mb-2.5 block text-[0.88rem] text-cream/55 transition-colors duration-300 hover:text-cream">
       {children}
     </a>
   );

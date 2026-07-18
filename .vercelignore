@@ -1,0 +1,13 @@
+.agents/
+.codex/
+.git/
+.vercel/
+node_modules/
+dist/
+legacy-static/
+site-assets/
+scripts/
+supabase/
+.env
+.env.*
+*.log

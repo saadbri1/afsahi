@@ -8,17 +8,17 @@ import {
   Wallet, CalendarDays, Sun, Inbox, Sparkles, CheckCircle2, XCircle, Gauge,
 } from "lucide-react";
 import {
-  computeKpis, revenueByMonth, reservationsByStatus, bookingsByVehicle, topRoutes, fmtMAD,
+  fmtMAD,
 } from "../../lib/analytics.js";
 
 const GOLD = "#A9823F";
 
-export default function Overview({ items }) {
-  const k = computeKpis(items);
-  const revData = revenueByMonth(items);
-  const statusData = reservationsByStatus(items);
-  const vehicleData = bookingsByVehicle(items);
-  const routes = topRoutes(items);
+export default function Overview({ analytics }) {
+  const k = analytics?.kpis || {};
+  const revData = analytics?.revenueByMonth || [];
+  const statusData = analytics?.reservationsByStatus || [];
+  const vehicleData = analytics?.bookingsByVehicle || [];
+  const routes = analytics?.topRoutes || [];
 
   const kpis = [
     { label: "Total revenue", value: fmtMAD(k.totalRevenue), icon: Wallet, gold: true,

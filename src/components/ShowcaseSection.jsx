@@ -2,7 +2,6 @@
 import { CheckCircle, ArrowRight } from "lucide-react";
 import { useLang } from "../context/LanguageContext.jsx";
 import { useScrollReveal } from "../hooks/useScrollReveal.js";
-import { IMAGES } from "../data/images.js";
 
 function BookingMockup() {
   return (
@@ -13,9 +12,9 @@ function BookingMockup() {
       </div>
       <div className="space-y-3">
         {[
-          { name: "Business Class", model: "Mercedes E-Class", price: "€185", pax: 3, selected: false },
-          { name: "First Class", model: "Mercedes S-Class", price: "€290", pax: 3, selected: true },
-          { name: "Premium SUV", model: "Mercedes GLS", price: "€260", pax: 5, selected: false },
+          { name: "Premium Sedan", model: "Skoda Superb", price: "€79", pax: 3, selected: false },
+          { name: "Business", model: "Mercedes E-Class", price: "€102", pax: 3, selected: true },
+          { name: "Van", model: "Mercedes Vito", price: "€102", pax: 7, selected: false },
         ].map((v, i) => (
           <div key={i}
             className={`flex items-center justify-between rounded-xl border p-4 transition-all ${v.selected ? "border-champ bg-sand shadow-[inset_0_0_0_1px_rgba(169,130,63,0.3)]" : "border-line hover:border-line/80 hover:bg-sand/60"}`}>

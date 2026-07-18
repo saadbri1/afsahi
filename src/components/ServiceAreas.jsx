@@ -22,7 +22,7 @@ export default function ServiceAreas() {
           {CITIES.map((city) => (
             <article key={city.name} data-city
               className="group relative aspect-[3/4] overflow-hidden rounded-2xl">
-              <img src={city.img} alt={city.name}
+              <img src={city.img} alt={`${city.name}, Morocco`} width={city.width} height={city.height} loading="lazy" decoding="async"
                 className="h-full w-full object-cover transition-transform duration-[1000ms] ease-luxe group-hover:scale-[1.06]" />
               <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(16,13,9,0.72)_0%,rgba(16,13,9,0.18)_55%,transparent_100%)]" />
               <div className="absolute bottom-0 left-0 right-0 p-5">

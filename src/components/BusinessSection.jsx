@@ -34,12 +34,13 @@ export default function BusinessSection() {
   }, [reduce]);
 
   return (
-    <section ref={sectionRef} className="section bg-sand">
+    <section ref={sectionRef} id="business" className="section overflow-hidden bg-sand">
       <div className="wrap">
         <div className="grid items-center gap-16 lg:grid-cols-2">
           <div className="relative aspect-[4/5] overflow-hidden rounded-2xl">
             <img ref={imgRef} src={IMAGES.fleetFirst}
               alt="Professional chauffeur opening door of a Mercedes S-Class"
+              width="672" height="900" loading="lazy" decoding="async"
               className="absolute inset-0 h-[115%] w-full -translate-y-[7%] object-cover" />
             <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(16,13,9,0.22)_0%,transparent_50%)]" />
           </div>
