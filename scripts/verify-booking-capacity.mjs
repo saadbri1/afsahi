@@ -14,6 +14,7 @@ const FLEET = [
   { name: "Skoda Superb", maxPassengers: 3, maxBags: 3, pricePerKm: 8.5 },
   { name: "Skoda Kodiaq", maxPassengers: 4, maxBags: 3, pricePerKm: 8.5 },
   { name: "Mercedes Vito", maxPassengers: 7, maxBags: 6, pricePerKm: 11 },
+  { name: "Ford Tourneo", maxPassengers: 7, maxBags: 6, pricePerKm: 11 },
   { name: "Minibus", maxPassengers: 19, maxBags: 20, pricePerKm: 20 },
 ];
 const CASES = [
@@ -154,6 +155,16 @@ try {
     const expected = Math.round(report.distanceKm * f.pricePerKm);
     report.pricing.push({ name: p.name, shown: p.mad, expected });
     if (Math.abs(p.mad - expected) > 1) report.failures.push(`Price ${p.name}: ${p.mad} != ${expected}`);
+  }
+
+  // ── Vito and Tourneo share a rate: identical final price for the same route
+  const vito = report.pricing.find((x) => x.name === "Mercedes Vito");
+  const tourneo = report.pricing.find((x) => x.name === "Ford Tourneo");
+  report.vanParity = { vito: vito?.shown ?? null, tourneo: tourneo?.shown ?? null };
+  if (!vito || !tourneo) {
+    report.failures.push("Van parity: Vito or Ford Tourneo missing from the options");
+  } else if (vito.shown !== tourneo.shown) {
+    report.failures.push(`Van parity: Vito ${vito.shown} MAD != Ford Tourneo ${tourneo.shown} MAD`);
   }
 
   // ── reservation payload carries the customer's counts + final price

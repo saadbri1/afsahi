@@ -37,6 +37,13 @@ export const VEHICLES = [
     maxPassengers: 7, maxBags: 6, pricePerKm: 11, image: IMAGES.fleetVanExec,
   },
   {
+    // Same class and rate as the Vito — both MUST price identically for a given
+    // route. Kept as a distinct option with its own name, image and specs.
+    id: "ford-tourneo", name: "Ford Tourneo", category: "Van",
+    model: "Tourneo Custom", fuelType: "Diesel", transmission: "Automatic",
+    maxPassengers: 7, maxBags: 6, pricePerKm: 11, image: IMAGES.fleetShuttle,
+  },
+  {
     id: "minibus", name: "Minibus", category: "Group Travel",
     model: "Sprinter", fuelType: "Diesel", transmission: "Automatic",
     maxPassengers: 19, maxBags: 20, pricePerKm: 20, image: IMAGES.fleetMinibus,

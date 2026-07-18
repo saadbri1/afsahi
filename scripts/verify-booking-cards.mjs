@@ -8,7 +8,7 @@ const baseUrl = process.env.TEST_URL || "http://127.0.0.1:4173";
 const label = process.argv[2] || "after";
 const widths = [430, 390, 375, 360, 768, 1024, 1440];
 const shotWidths = new Set([390, 768, 1440]);
-const ACTIVE_FLEET = 5; // src/data/bookingPricing.js VEHICLES (active only)
+const ACTIVE_FLEET = 6; // src/data/bookingPricing.js VEHICLES (active only)
 
 const browser = await puppeteer.launch({
   executablePath: process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
