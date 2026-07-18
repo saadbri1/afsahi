@@ -6,7 +6,7 @@ import { scrollToHash } from "../hooks/useLenis.js";
 const LINKS = [
   { id: "#services", key: "services" },
   { id: "#business", key: "business" },
-  { id: "#fleet", key: "fleet" },
+  { id: "#nationwide-service", key: "fleet" },
   { id: "#faq", key: "help" },
 ];
 

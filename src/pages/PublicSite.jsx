@@ -12,7 +12,6 @@ import BusinessSection from "../components/BusinessSection.jsx";
 import ShowcaseSection from "../components/ShowcaseSection.jsx";
 import ComfortSection from "../components/ComfortSection.jsx";
 import GlobalChauffeurMotion from "../components/GlobalChauffeurMotion.jsx";
-import Fleet from "../components/Fleet.jsx";
 import ServiceAreas from "../components/ServiceAreas.jsx";
 import Reviews from "../components/Reviews.jsx";
 import FAQ from "../components/FAQ.jsx";
@@ -37,7 +36,6 @@ function Homepage({ onSeePrices }) {
         <ShowcaseSection onSeePrices={onSeePrices} />
         <ComfortSection />
         <GlobalChauffeurMotion onSeePrices={onSeePrices} />
-        <Fleet />
         <ServiceAreas />
         <Reviews />
         <FAQ />

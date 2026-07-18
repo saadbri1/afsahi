@@ -114,16 +114,16 @@ try {
   report.security.homeLoadedAdminCode = initialResources.some((url) => /AdminDashboard|Overview-|ReservationsTable/.test(url));
   report.security.homeContactedSupabase = initialResources.some((url) => url.includes("supabase.co"));
 
-  await page.click('nav[aria-label="Primary navigation"] a[href="#fleet"]');
+  await page.click('nav[aria-label="Primary navigation"] a[href="#nationwide-service"]');
   await sleep(600);
   report.navigation.anchor = await page.evaluate(() => {
     const header = document.querySelector("header").getBoundingClientRect();
-    const fleet = document.querySelector("#fleet").getBoundingClientRect();
+    const target = document.querySelector("#nationwide-service").getBoundingClientRect();
     return {
       hash: location.hash,
-      fleetTop: Math.round(fleet.top),
+      fleetTop: Math.round(target.top),
       headerBottom: Math.round(header.bottom),
-      aligned: fleet.top >= header.bottom - 3 && fleet.top <= header.bottom + 8,
+      aligned: target.top >= header.bottom - 3 && target.top <= header.bottom + 8,
     };
   });
   await page.evaluate(() => history.back());

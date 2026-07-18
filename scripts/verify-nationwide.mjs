@@ -1,51 +1,40 @@
+// Nationwide section verification — photo-driven cinematic (no background video).
+// Asserts: correct responsive mode, three new photos in order, masked scene
+// progression, sticky pin, no overlap/overflow/CLS, and reduced-motion flow.
+// Usage: TEST_URL=http://127.0.0.1:4173 node scripts/verify-nationwide.mjs
 import puppeteer from "puppeteer-core";
 
 const baseUrl = process.env.TEST_URL || "http://127.0.0.1:4173";
 const widths = [1440, 1280, 1024, 768, 430, 390, 360];
-const desktopBreakpoint = 1100;
+const cinematicBreakpoint = 768; // photos-cinematic runs at >= 768px
+const EXPECTED_ORDER = ["arrival-door", "service-umbrella", "executive-exit"];
+
 const browser = await puppeteer.launch({
   executablePath: process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   headless: true,
-  args: ["--no-sandbox", "--disable-dev-shm-usage", "--autoplay-policy=user-gesture-required"],
+  args: ["--no-sandbox", "--disable-dev-shm-usage"],
 });
 
-const report = {
-  responsive: [],
-  desktopStages: [],
-  reducedMotion: {},
-  consoleErrors: [],
-  pageErrors: [],
-  failures: [],
-};
+const report = { responsive: [], desktopStages: [], imageOrder: {}, reducedMotion: {}, consoleErrors: [], pageErrors: [], failures: [] };
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function createPage(width, reduced = false) {
   const page = await browser.newPage();
   await page.evaluateOnNewDocument(() => {
-    window.__nationwideVitals = { cls: 0, longTasks: [] };
+    window.__vitals = { cls: 0, longTasks: [] };
     new PerformanceObserver((list) => {
-      for (const entry of list.getEntries()) {
-        if (!entry.hadRecentInput) window.__nationwideVitals.cls += entry.value;
-      }
+      for (const entry of list.getEntries()) if (!entry.hadRecentInput) window.__vitals.cls += entry.value;
     }).observe({ type: "layout-shift", buffered: true });
     new PerformanceObserver((list) => {
-      window.__nationwideVitals.longTasks.push(...list.getEntries().map((entry) => Math.round(entry.duration)));
+      window.__vitals.longTasks.push(...list.getEntries().map((e) => Math.round(e.duration)));
     }).observe({ type: "longtask", buffered: true });
   });
   await page.setViewport({ width, height: width < 768 ? 844 : 900, deviceScaleFactor: 1 });
   if (reduced) await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
-  page.on("console", (message) => {
-    if (message.type() === "error") report.consoleErrors.push({ width, text: message.text() });
-  });
-  page.on("pageerror", (error) => report.pageErrors.push({ width, text: error.message }));
+  page.on("console", (m) => { if (m.type() === "error") report.consoleErrors.push({ width, text: m.text() }); });
+  page.on("pageerror", (e) => report.pageErrors.push({ width, text: e.message }));
   await page.goto(baseUrl, { waitUntil: "networkidle0", timeout: 30000 });
   return page;
-}
-
-function visible(element) {
-  if (!element) return false;
-  const style = getComputedStyle(element);
-  return style.display !== "none" && style.visibility !== "hidden" && element.getClientRects().length > 0;
 }
 
 try {
@@ -53,146 +42,121 @@ try {
     const page = await createPage(width);
     const state = await page.evaluate(() => {
       const section = document.querySelector("#nationwide-service");
-      const desktop = section.querySelector("[data-cinematic-desktop]");
+      const pin = section.querySelector("[data-cinematic-pin]");
       const fallback = section.querySelector("[data-cinematic-fallback]");
-      const isVisible = (element) => {
-        if (!element) return false;
-        const style = getComputedStyle(element);
-        return style.display !== "none" && style.visibility !== "hidden" && element.getClientRects().length > 0;
+      const isVisible = (el) => {
+        if (!el) return false;
+        const s = getComputedStyle(el);
+        return s.display !== "none" && s.visibility !== "hidden" && el.getClientRects().length > 0;
       };
       return {
-        sectionHeight: Math.round(section.getBoundingClientRect().height),
-        viewportHeight: innerHeight,
         pageOverflow: document.documentElement.scrollWidth > innerWidth + 1,
         sectionOverflow: section.scrollWidth > section.clientWidth + 1,
-        desktopVisible: isVisible(desktop),
+        pinVisible: isVisible(pin),
         fallbackVisible: isVisible(fallback),
-        fallbackStories: fallback?.querySelectorAll("[data-fallback-story]").length || 0,
-        videoPresent: Boolean(section.querySelector("[data-cinematic-video]")),
+        fallbackStories: fallback?.querySelectorAll("[data-stack-story]").length || 0,
+        videoPresent: Boolean(section.querySelector("video")),
       };
     });
     report.responsive.push({ width, ...state });
-    await page.evaluate(() => {
-      window.__nationwideVitals = { cls: 0, longTasks: [] };
-    });
+    await page.evaluate(() => { window.__vitals = { cls: 0, longTasks: [] }; });
 
-    if (width >= desktopBreakpoint) {
+    if (width >= cinematicBreakpoint) {
       const geometry = await page.evaluate(() => {
-        const desktop = document.querySelector("[data-cinematic-desktop]");
-        const rect = desktop.getBoundingClientRect();
-        return {
-          top: scrollY + rect.top,
-          height: desktop.offsetHeight,
-          travel: desktop.offsetHeight - innerHeight,
-        };
+        const pin = document.querySelector("[data-cinematic-pin]");
+        const rect = pin.getBoundingClientRect();
+        return { top: scrollY + rect.top, height: pin.offsetHeight, travel: pin.offsetHeight - innerHeight };
       });
 
-      for (const [index, progress] of [0.06, 0.4, 0.72, 0.95].entries()) {
+      if (width === 1440) {
+        report.imageOrder[width] = await page.evaluate(() => (
+          [...document.querySelectorAll("[data-chapter-layer] img")].map((img) => img.getAttribute("src"))
+        ));
+      }
+
+      for (const [index, progress] of [0.12, 0.42, 0.72, 0.9].entries()) {
         await page.evaluate((y) => scrollTo(0, y), geometry.top + geometry.travel * progress);
-        await pause(700);
+        await pause(650);
         const stage = await page.evaluate(() => {
-          const scenes = [...document.querySelectorAll("[data-cinematic-scene]")].map((element) => ({
-            opacity: Number(getComputedStyle(element).opacity),
-            visibility: getComputedStyle(element).visibility,
-            text: element.textContent.trim().replace(/\s+/g, " ").slice(0, 140),
+          const scenes = [...document.querySelectorAll("[data-cinematic-scene]")].map((el) => ({
+            opacity: Number(getComputedStyle(el).opacity),
+            visibility: getComputedStyle(el).visibility,
           }));
-          const progressItems = [...document.querySelectorAll("[data-progress-stage]")].map((element) => Number(getComputedStyle(element).opacity));
-          const routeOffsets = [...document.querySelectorAll("[data-cinematic-desktop] [data-route-line]")]
-            .map((element) => Number.parseFloat(getComputedStyle(element).strokeDashoffset));
-          const video = document.querySelector("[data-cinematic-video]");
           const pinned = document.querySelector("[data-cinematic-stage]");
-          const visibleScene = document.querySelectorAll("[data-cinematic-scene]")[[...scenes].findIndex((scene) => scene.opacity > 0.55)];
-          const progressRail = document.querySelector("[data-progress-stage]")?.parentElement;
-          const overlaps = (one, two) => {
-            if (!one || !two) return false;
-            const a = one.getBoundingClientRect();
-            const b = two.getBoundingClientRect();
-            return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+          const rail = document.querySelector("[data-progress-stage]")?.parentElement;
+          const visibleSceneEl = document.querySelectorAll("[data-cinematic-scene]")[scenes.findIndex((s) => s.opacity > 0.55 && s.visibility !== "hidden")];
+          const overlaps = (a, b) => {
+            if (!a || !b) return false;
+            const r1 = a.getBoundingClientRect(); const r2 = b.getBoundingClientRect();
+            return r1.left < r2.right && r1.right > r2.left && r1.top < r2.bottom && r1.bottom > r2.top;
           };
           return {
             scenes,
-            progressItems,
-            routeOffsets,
-            videoTime: Number(video?.currentTime.toFixed(3)),
-            videoPaused: video?.paused,
             pinnedPosition: getComputedStyle(pinned).position,
-            contentOverlap: overlaps(visibleScene, progressRail),
+            contentOverlap: overlaps(visibleSceneEl, rail),
           };
         });
-        const expectedStage = index === 0 ? 1 : index === 1 ? 2 : 3;
-        report.desktopStages.push({ width, scrollProgress: progress, expectedStage, ...stage });
-        if (width === 1440) {
-          await page.screenshot({ path: `/tmp/afsahi-cinematic-1440-${index + 1}.png`, captureBeyondViewport: false });
-        }
+        report.desktopStages.push({ width, scrollProgress: progress, expectedStage: index === 0 ? 1 : index === 1 ? 2 : 3, ...stage });
+        if (width === 1440) await page.screenshot({ path: `/tmp/afsahi-cinematic-1440-${index + 1}.png`, captureBeyondViewport: false });
+        if (width === 1024 && index === 1) await page.screenshot({ path: "/tmp/afsahi-cinematic-1024.png", captureBeyondViewport: false });
       }
 
-      await page.evaluate((y) => scrollTo(0, y), geometry.top + geometry.height + 160);
+      await page.evaluate((y) => scrollTo(0, y), geometry.top + geometry.height + 200);
       await pause(250);
-      const escapedPin = await page.evaluate((end) => scrollY > end, geometry.top + geometry.travel);
-      report.responsive.at(-1).escapedPin = escapedPin;
+      report.responsive.at(-1).escapedPin = await page.evaluate((end) => scrollY > end, geometry.top + geometry.travel);
     } else {
-      const top = await page.evaluate(() => {
-        const section = document.querySelector("#nationwide-service");
-        return scrollY + section.getBoundingClientRect().top;
-      });
+      const top = await page.evaluate(() => scrollY + document.querySelector("#nationwide-service").getBoundingClientRect().top);
       await page.evaluate((y) => scrollTo(0, y), top);
-      await pause(250);
-      if (width === 1024 || width === 430) {
-        await page.screenshot({ path: `/tmp/afsahi-cinematic-${width}.png`, captureBeyondViewport: false });
-      }
+      await pause(300);
+      if (width === 430) await page.screenshot({ path: "/tmp/afsahi-cinematic-430.png", captureBeyondViewport: false });
     }
 
-    const vitals = await page.evaluate(() => window.__nationwideVitals);
+    const vitals = await page.evaluate(() => window.__vitals);
     report.responsive.at(-1).cls = Number(vitals.cls.toFixed(4));
-    report.responsive.at(-1).longTasksOver100ms = vitals.longTasks.filter((duration) => duration > 100);
+    report.responsive.at(-1).longTasksOver100ms = vitals.longTasks.filter((d) => d > 100);
     await page.close();
   }
 
   const reducedPage = await createPage(1440, true);
+  await reducedPage.evaluate(() => scrollTo(0, document.querySelector("#nationwide-service").offsetTop));
+  await pause(300);
   report.reducedMotion = await reducedPage.evaluate(() => {
     const section = document.querySelector("#nationwide-service");
     const fallback = section.querySelector("[data-cinematic-fallback]");
     return {
-      fallbackStories: fallback?.querySelectorAll("[data-fallback-story]").length || 0,
-      desktopStoryPresent: Boolean(section.querySelector("[data-cinematic-desktop]")),
+      fallbackStories: fallback?.querySelectorAll("[data-stack-story]").length || 0,
+      pinPresent: Boolean(section.querySelector("[data-cinematic-pin]")),
       videoPresent: Boolean(section.querySelector("video")),
-      runningAnimations: document.getAnimations().filter((animation) => animation.playState === "running").length,
-      allHeadingsVisible: [...section.querySelectorAll("h3")].every((heading) => getComputedStyle(heading).visibility === "visible"),
+      runningAnimations: document.getAnimations().filter((a) => a.playState === "running").length,
+      allHeadingsVisible: [...section.querySelectorAll("h3")].every((h) => getComputedStyle(h).visibility === "visible"),
       sectionOverflow: section.scrollWidth > section.clientWidth + 1,
     };
   });
   await reducedPage.close();
 
+  // Assertions
   for (const item of report.responsive) {
     if (item.pageOverflow || item.sectionOverflow) report.failures.push(`Overflow at ${item.width}px`);
     if (item.cls > 0.02) report.failures.push(`Layout shift at ${item.width}px: ${item.cls}`);
-    if (item.longTasksOver100ms.length) report.failures.push(`Long task over 100ms at ${item.width}px`);
-    if (item.width >= desktopBreakpoint && (!item.desktopVisible || item.fallbackVisible || !item.videoPresent || !item.escapedPin)) {
-      report.failures.push(`Desktop cinematic layout failed at ${item.width}px`);
+    if (item.longTasksOver100ms?.length) report.failures.push(`Long task >100ms at ${item.width}px`);
+    if (item.videoPresent) report.failures.push(`Video still present at ${item.width}px`);
+    if (item.width >= cinematicBreakpoint && (!item.pinVisible || item.fallbackVisible || !item.escapedPin)) {
+      report.failures.push(`Cinematic pin failed at ${item.width}px`);
     }
-    if (item.width < desktopBreakpoint && (item.desktopVisible || !item.fallbackVisible || item.fallbackStories !== 3 || item.videoPresent)) {
-      report.failures.push(`Lightweight fallback failed at ${item.width}px`);
+    if (item.width < cinematicBreakpoint && (item.pinVisible || !item.fallbackVisible || item.fallbackStories !== 3)) {
+      report.failures.push(`Stacked fallback failed at ${item.width}px`);
     }
   }
-
   for (const item of report.desktopStages) {
-    const visibleScene = item.scenes.findIndex((scene) => scene.opacity > 0.55 && scene.visibility !== "hidden") + 1;
-    if (visibleScene !== item.expectedStage) report.failures.push(`Scene ${item.expectedStage} was not stable at ${item.width}px / ${item.scrollProgress}`);
-    if (!item.videoPaused) report.failures.push(`Video autoplayed at ${item.width}px`);
-    if (item.pinnedPosition !== "sticky") report.failures.push(`Sticky stage was not active at ${item.width}px / ${item.scrollProgress}`);
-    if (item.contentOverlap) report.failures.push(`Editorial content overlap at ${item.width}px / ${item.scrollProgress}`);
+    const visibleScene = item.scenes.findIndex((s) => s.opacity > 0.55 && s.visibility !== "hidden") + 1;
+    if (visibleScene !== item.expectedStage) report.failures.push(`Scene ${item.expectedStage} not stable at ${item.width}px / ${item.scrollProgress} (saw ${visibleScene})`);
+    if (item.pinnedPosition !== "sticky") report.failures.push(`Sticky stage inactive at ${item.width}px / ${item.scrollProgress}`);
+    if (item.contentOverlap) report.failures.push(`Scene/progress overlap at ${item.width}px / ${item.scrollProgress}`);
   }
-
-  for (const width of [1440, 1280]) {
-    const samples = report.desktopStages.filter((stage) => stage.width === width);
-    if (!samples.every((sample, index) => index === 0 || sample.videoTime > samples[index - 1].videoTime + 1)) {
-      report.failures.push(`Video scrub did not progress at ${width}px`);
-    }
-  }
-
-  if (report.reducedMotion.fallbackStories !== 3 || report.reducedMotion.desktopStoryPresent
-    || report.reducedMotion.videoPresent || !report.reducedMotion.allHeadingsVisible
-    || report.reducedMotion.runningAnimations !== 0 || report.reducedMotion.sectionOverflow) {
+  const order = (report.imageOrder[1440] || []).map((src) => EXPECTED_ORDER.find((base) => src?.includes(base)) || src);
+  if (order.join(",") !== EXPECTED_ORDER.join(",")) report.failures.push(`Image order wrong: ${JSON.stringify(order)}`);
+  const rm = report.reducedMotion;
+  if (rm.fallbackStories !== 3 || rm.pinPresent || rm.videoPresent || !rm.allHeadingsVisible || rm.runningAnimations !== 0 || rm.sectionOverflow) {
     report.failures.push("Reduced-motion fallback failed");
   }
   if (report.consoleErrors.length || report.pageErrors.length) report.failures.push("Browser errors detected");
